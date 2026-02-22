@@ -1,116 +1,216 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, buildUrl } from "@shared/routes";
-import { type InsertRecipe, type InsertRecipeIngredient } from "@shared/schema";
 
+export type Ingredient = {
+  id: number;
+  name: string;
+  unit: string;
+  price: string;        // precio del paquete (string para mantener tu UI actual con parseFloat/Number)
+  packageSize: string;  // tamaño del paquete
+};
+
+export type RecipeIngredient = {
+  id: number; // id del item dentro de la receta
+  recipeId: number;
+  ingredientId: number;
+  quantity: string; // cantidad usada
+  ingredient: Ingredient;
+};
+
+export type Recipe = {
+  id: number;
+  name: string;
+  description?: string;
+  ingredients: RecipeIngredient[];
+};
+
+// ===== Mock data =====
+let mockIngredients: Ingredient[] = [
+  { id: 1, name: "Harina", unit: "kg", price: "1200", packageSize: "1" },
+  { id: 2, name: "Queso", unit: "kg", price: "6500", packageSize: "1" },
+];
+
+let mockRecipes: Recipe[] = [
+  {
+    id: 1,
+    name: "Pizza Muzza",
+    description: "Clásica muzza",
+    ingredients: [
+      {
+        id: 1,
+        recipeId: 1,
+        ingredientId: 1,
+        quantity: "0.3",
+        ingredient: mockIngredients[0],
+      },
+      {
+        id: 2,
+        recipeId: 1,
+        ingredientId: 2,
+        quantity: "0.25",
+        ingredient: mockIngredients[1],
+      },
+    ],
+  },
+  {
+    id: 2,
+    name: "Empanadas",
+    description: "Empanadas caseras",
+    ingredients: [],
+  },
+  {
+    id: 3,
+    name: "Tarta de Apio",
+    description: "Apio y miel",
+    ingredients:[],
+  },
+];
+
+// ===== Helpers =====
+function hydrateRecipe(r: Recipe): Recipe {
+  return {
+    ...r,
+    description: r.description ?? "",
+    ingredients: (r.ingredients ?? []).map((it) => ({
+      ...it,
+      ingredient:
+        it.ingredient ??
+        mockIngredients.find((x) => x.id === it.ingredientId) ??
+        ({ id: it.ingredientId, name: "Unknown", unit: "u", price: "0", packageSize: "1" } as Ingredient),
+    })),
+  };
+}
+
+// ===== Queries =====
 export function useRecipes() {
   return useQuery({
-    queryKey: [api.recipes.list.path],
-    queryFn: async () => {
-      const res = await fetch(api.recipes.list.path);
-      if (!res.ok) throw new Error("Failed to fetch recipes");
-      return api.recipes.list.responses[200].parse(await res.json());
-    },
+    queryKey: ["recipes"],
+    queryFn: async () => mockRecipes.map(hydrateRecipe),
   });
 }
 
 export function useRecipe(id: number) {
   return useQuery({
-    queryKey: [api.recipes.get.path, id],
+    queryKey: ["recipe", id],
     queryFn: async () => {
-      const url = buildUrl(api.recipes.get.path, { id });
-      const res = await fetch(url);
-      if (res.status === 404) return null;
-      if (!res.ok) throw new Error("Failed to fetch recipe");
-      return api.recipes.get.responses[200].parse(await res.json());
+      const r = mockRecipes.find((x) => x.id === id);
+      return r ? hydrateRecipe(r) : null;
     },
     enabled: !!id,
   });
 }
 
+// ===== Mutations =====
 export function useCreateRecipe() {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: async (data: InsertRecipe) => {
-      const validated = api.recipes.create.input.parse(data);
-      const res = await fetch(api.recipes.create.path, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(validated),
-      });
-      if (!res.ok) throw new Error("Failed to create recipe");
-      return api.recipes.create.responses[201].parse(await res.json());
+    mutationFn: async (data: { name: string; description?: string }) => {
+      const newRecipe: Recipe = {
+        id: Date.now(),
+        name: data.name,
+        description: data.description ?? "",
+        ingredients: [],
+      };
+      mockRecipes = [...mockRecipes, newRecipe];
+      return hydrateRecipe(newRecipe);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.recipes.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
     },
   });
 }
 
 export function useUpdateRecipe() {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: async ({ id, ...data }: { id: number } & Partial<InsertRecipe>) => {
-      const validated = api.recipes.update.input.parse(data);
-      const url = buildUrl(api.recipes.update.path, { id });
-      const res = await fetch(url, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(validated),
-      });
-      if (!res.ok) throw new Error("Failed to update recipe");
-      return api.recipes.update.responses[200].parse(await res.json());
+    mutationFn: async (data: { id: number; name?: string; description?: string }) => {
+      const { id, name, description } = data;
+
+      mockRecipes = mockRecipes.map((r) =>
+        r.id === id
+          ? hydrateRecipe({
+              ...r,
+              name: name ?? r.name,
+              description: description ?? r.description ?? "",
+            })
+          : r
+      );
+
+      const updated = mockRecipes.find((r) => r.id === id);
+      return updated ? hydrateRecipe(updated) : null;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: [api.recipes.list.path] });
-      queryClient.invalidateQueries({ queryKey: [api.recipes.get.path, variables.id] });
+    onSuccess: (_res, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      queryClient.invalidateQueries({ queryKey: ["recipe", variables.id] });
     },
   });
 }
 
 export function useDeleteRecipe() {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async (id: number) => {
-      const url = buildUrl(api.recipes.delete.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete recipe");
+      mockRecipes = mockRecipes.filter((r) => r.id !== id);
+      // limpiar ingredientes asociados (opcional)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.recipes.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
     },
   });
 }
 
+// ===== Recipe Ingredients (lo que te faltaba) =====
 export function useAddRecipeIngredient() {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: async ({ recipeId, ...data }: Omit<InsertRecipeIngredient, "recipeId"> & { recipeId: number }) => {
-      const validated = api.recipeIngredients.add.input.parse(data);
-      const url = buildUrl(api.recipeIngredients.add.path, { recipeId });
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(validated),
-      });
-      if (!res.ok) throw new Error("Failed to add ingredient to recipe");
-      return api.recipeIngredients.add.responses[201].parse(await res.json());
+    mutationFn: async (data: { recipeId: number; ingredientId: number; quantity: string }) => {
+      const { recipeId, ingredientId, quantity } = data;
+
+      const recipe = mockRecipes.find((r) => r.id === recipeId);
+      if (!recipe) throw new Error("Recipe not found");
+
+      const ing = mockIngredients.find((i) => i.id === ingredientId);
+      if (!ing) throw new Error("Ingredient not found");
+
+      const newItem: RecipeIngredient = {
+        id: Date.now(),
+        recipeId,
+        ingredientId,
+        quantity,
+        ingredient: ing,
+      };
+
+      recipe.ingredients = [...(recipe.ingredients ?? []), newItem];
+      mockRecipes = mockRecipes.map((r) => (r.id === recipeId ? hydrateRecipe(recipe) : r));
+
+      return newItem;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: [api.recipes.get.path, variables.recipeId] });
+    onSuccess: (_res, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["recipe", variables.recipeId] });
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
     },
   });
 }
 
 export function useRemoveRecipeIngredient() {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: async ({ recipeId, ingredientId }: { recipeId: number; ingredientId: number }) => {
-      const url = buildUrl(api.recipeIngredients.remove.path, { recipeId, ingredientId });
-      const res = await fetch(url, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to remove ingredient from recipe");
+    mutationFn: async (data: { recipeId: number; ingredientId: number }) => {
+      const { recipeId, ingredientId } = data;
+
+      const recipe = mockRecipes.find((r) => r.id === recipeId);
+      if (!recipe) throw new Error("Recipe not found");
+
+      recipe.ingredients = (recipe.ingredients ?? []).filter((it) => it.ingredientId !== ingredientId);
+      mockRecipes = mockRecipes.map((r) => (r.id === recipeId ? hydrateRecipe(recipe) : r));
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: [api.recipes.get.path, variables.recipeId] });
+    onSuccess: (_res, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["recipe", variables.recipeId] });
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
     },
   });
 }

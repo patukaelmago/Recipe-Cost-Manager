@@ -1,73 +1,124 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+// client/src/hooks/use-ingredients.ts
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  serverTimestamp,
+  query,
+  orderBy,
+} from "firebase/firestore";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { db } from "@/lib/firebase";
+import { insertIngredientSchema, type InsertIngredient } from "@shared/schema";
 
-type Ingredient = {
-  id: number;
+export type Ingredient = {
+  id: string; // Firestore doc id
   name: string;
+  unit: string;
+  packageSize: number;
+  price: number;
 };
 
-let mockIngredients: Ingredient[] = [
-  { id: 1, name: "Harina" },
-  { id: 2, name: "Queso" }
-];
+const COL = "ingredients" as const;
+
+function parseIngredient(input: unknown): InsertIngredient {
+  return insertIngredientSchema.parse(input);
+}
+
+function mapIngredient(id: string, data: any): Ingredient {
+  return {
+    id,
+    name: String(data?.name ?? ""),
+    unit: String(data?.unit ?? ""),
+    packageSize: Number(data?.packageSize ?? 0),
+    price: Number(data?.price ?? 0),
+  };
+}
 
 export function useIngredients() {
   return useQuery({
     queryKey: ["ingredients"],
-    queryFn: async () => mockIngredients
+    queryFn: async (): Promise<Ingredient[]> => {
+      const q = query(collection(db, COL), orderBy("name"));
+      const snap = await getDocs(q);
+      return snap.docs.map((d) => mapIngredient(d.id, d.data()));
+    },
   });
 }
 
-export function useIngredient(id: number) {
+export function useIngredient(id: string) {
   return useQuery({
-    queryKey: ["ingredient", id],
-    queryFn: async () =>
-      mockIngredients.find(i => i.id === id) ?? null,
-    enabled: !!id
+    queryKey: ["ingredients", id],
+    enabled: !!id,
+    queryFn: async (): Promise<Ingredient | null> => {
+      const ref = doc(db, COL, id);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) return null;
+      return mapIngredient(snap.id, snap.data());
+    },
   });
 }
 
 export function useCreateIngredient() {
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { name: string }) => {
-      const newIngredient = {
-        id: Date.now(),
-        name: data.name
-      };
-      mockIngredients.push(newIngredient);
-      return newIngredient;
+    mutationFn: async (raw: InsertIngredient) => {
+      const data = parseIngredient(raw);
+
+      const ref = await addDoc(collection(db, COL), {
+        ...data,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      return ref.id;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ingredients"] });
-    }
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["ingredients"] });
+    },
   });
 }
 
 export function useUpdateIngredient() {
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, name }: { id: number; name: string }) => {
-      mockIngredients = mockIngredients.map(i =>
-        i.id === id ? { ...i, name } : i
-      );
+    mutationFn: async (payload: { id: string } & InsertIngredient) => {
+      const { id, ...rest } = payload;
+      const data = parseIngredient(rest);
+
+      const ref = doc(db, COL, id);
+      await updateDoc(ref, {
+        ...data,
+        updatedAt: serverTimestamp(),
+      });
+
+      return id;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ingredients"] });
-    }
+    onSuccess: async (_id, vars) => {
+      await qc.invalidateQueries({ queryKey: ["ingredients"] });
+      await qc.invalidateQueries({ queryKey: ["ingredients", vars.id] });
+    },
   });
 }
 
 export function useDeleteIngredient() {
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: number) => {
-      mockIngredients = mockIngredients.filter(i => i.id !== id);
+    mutationFn: async (id: string) => {
+      const ref = doc(db, COL, id);
+      await deleteDoc(ref);
+      return id;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ingredients"] });
-    }
+    onSuccess: async (id) => {
+      await qc.invalidateQueries({ queryKey: ["ingredients"] });
+      await qc.invalidateQueries({ queryKey: ["ingredients", id] });
+    },
   });
 }

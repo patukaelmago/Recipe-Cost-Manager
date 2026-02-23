@@ -1,216 +1,281 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+// client/src/hooks/use-recipes.ts
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  serverTimestamp,
+  query,
+  orderBy,
+} from "firebase/firestore";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { db } from "@/lib/firebase";
+import { insertRecipeSchema, type InsertRecipe } from "@shared/schema";
+import { insertIngredientSchema, type InsertIngredient } from "@shared/schema";
 
+// ===== Types =====
+
+// Igual que Firestore ingredients: {id,name,unit,packageSize,price}
 export type Ingredient = {
-  id: number;
+  id: string;
   name: string;
   unit: string;
-  price: string;        // precio del paquete (string para mantener tu UI actual con parseFloat/Number)
-  packageSize: string;  // tamaño del paquete
+  packageSize: number;
+  price: number;
 };
 
-export type RecipeIngredient = {
-  id: number; // id del item dentro de la receta
-  recipeId: number;
-  ingredientId: number;
-  quantity: string; // cantidad usada
+// Item dentro de recipes/{recipeId}/ingredients
+export type RecipeIngredientItem = {
+  id: string; // <-- itemId (doc id del item)
+  ingredientId: string;
+  quantity: number;
   ingredient: Ingredient;
 };
 
 export type Recipe = {
-  id: number;
+  id: string;
   name: string;
   description?: string;
-  ingredients: RecipeIngredient[];
+  ingredients: RecipeIngredientItem[];
 };
 
-// ===== Mock data =====
-let mockIngredients: Ingredient[] = [
-  { id: 1, name: "Harina", unit: "kg", price: "1200", packageSize: "1" },
-  { id: 2, name: "Queso", unit: "kg", price: "6500", packageSize: "1" },
-];
+const RECIPES_COL = "recipes" as const;
+const INGREDIENTS_COL = "ingredients" as const;
 
-let mockRecipes: Recipe[] = [
-  {
-    id: 1,
-    name: "Pizza Muzza",
-    description: "Clásica muzza",
-    ingredients: [
-      {
-        id: 1,
-        recipeId: 1,
-        ingredientId: 1,
-        quantity: "0.3",
-        ingredient: mockIngredients[0],
-      },
-      {
-        id: 2,
-        recipeId: 1,
-        ingredientId: 2,
-        quantity: "0.25",
-        ingredient: mockIngredients[1],
-      },
-    ],
-  },
-  {
-    id: 2,
-    name: "Empanadas",
-    description: "Empanadas caseras",
-    ingredients: [],
-  },
-  {
-    id: 3,
-    name: "Tarta de Apio",
-    description: "Apio y miel",
-    ingredients:[],
-  },
-];
+// ===== Validators / mappers =====
 
-// ===== Helpers =====
-function hydrateRecipe(r: Recipe): Recipe {
+function parseRecipe(input: unknown): InsertRecipe {
+  return insertRecipeSchema.parse(input);
+}
+
+function parseIngredient(input: unknown): InsertIngredient {
+  return insertIngredientSchema.parse(input);
+}
+
+function mapIngredient(id: string, data: any): Ingredient {
+  const parsed = parseIngredient({
+    name: data?.name,
+    unit: data?.unit,
+    packageSize: data?.packageSize,
+    price: data?.price,
+  });
+
+  return { id, ...parsed };
+}
+
+function mapRecipeBase(id: string, data: any): Omit<Recipe, "ingredients"> {
   return {
-    ...r,
-    description: r.description ?? "",
-    ingredients: (r.ingredients ?? []).map((it) => ({
-      ...it,
-      ingredient:
-        it.ingredient ??
-        mockIngredients.find((x) => x.id === it.ingredientId) ??
-        ({ id: it.ingredientId, name: "Unknown", unit: "u", price: "0", packageSize: "1" } as Ingredient),
-    })),
+    id,
+    name: String(data?.name ?? ""),
+    description: String(data?.description ?? ""),
   };
 }
 
 // ===== Queries =====
+
 export function useRecipes() {
   return useQuery({
     queryKey: ["recipes"],
-    queryFn: async () => mockRecipes.map(hydrateRecipe),
+    queryFn: async (): Promise<Recipe[]> => {
+      const q = query(collection(db, RECIPES_COL), orderBy("name"));
+      const snap = await getDocs(q);
+
+      // list view: sin ingredientes (ahorra lecturas)
+      return snap.docs.map((d) => ({
+        ...mapRecipeBase(d.id, d.data()),
+        ingredients: [],
+      }));
+    },
   });
 }
 
-export function useRecipe(id: number) {
+export function useRecipe(id: string) {
   return useQuery({
     queryKey: ["recipe", id],
-    queryFn: async () => {
-      const r = mockRecipes.find((x) => x.id === id);
-      return r ? hydrateRecipe(r) : null;
-    },
     enabled: !!id,
+    queryFn: async (): Promise<Recipe | null> => {
+      const ref = doc(db, RECIPES_COL, id);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) return null;
+
+      const base = mapRecipeBase(snap.id, snap.data());
+
+      // subcolección: recipes/{id}/ingredients
+      const itemsRef = collection(db, RECIPES_COL, id, "ingredients");
+      const itemsSnap = await getDocs(itemsRef);
+
+      const items = itemsSnap.docs.map((d) => {
+        const data = d.data() as any;
+        return {
+          id: d.id, // <-- itemId
+          ingredientId: String(data?.ingredientId ?? ""),
+          quantity: Number(data?.quantity ?? 0),
+        };
+      });
+
+      // traer cada ingrediente referenciado
+      const ingredientDocs = await Promise.all(
+        items.map(async (it) => {
+          if (!it.ingredientId) {
+            const fallback: Ingredient = {
+              id: "",
+              name: "Unknown",
+              unit: "u",
+              packageSize: 1,
+              price: 0,
+            };
+            return { item: it, ingredient: fallback };
+          }
+
+          const ingRef = doc(db, INGREDIENTS_COL, it.ingredientId);
+          const ingSnap = await getDoc(ingRef);
+
+          if (!ingSnap.exists()) {
+            const fallback: Ingredient = {
+              id: it.ingredientId,
+              name: "Unknown",
+              unit: "u",
+              packageSize: 1,
+              price: 0,
+            };
+            return { item: it, ingredient: fallback };
+          }
+
+          return { item: it, ingredient: mapIngredient(ingSnap.id, ingSnap.data()) };
+        }),
+      );
+
+      const fullItems: RecipeIngredientItem[] = ingredientDocs.map(({ item, ingredient }) => ({
+        id: item.id, // itemId
+        ingredientId: item.ingredientId,
+        quantity: item.quantity,
+        ingredient,
+      }));
+
+      return { ...base, ingredients: fullItems };
+    },
   });
 }
 
 // ===== Mutations =====
+
 export function useCreateRecipe() {
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { name: string; description?: string }) => {
-      const newRecipe: Recipe = {
-        id: Date.now(),
-        name: data.name,
-        description: data.description ?? "",
-        ingredients: [],
-      };
-      mockRecipes = [...mockRecipes, newRecipe];
-      return hydrateRecipe(newRecipe);
+    mutationFn: async (raw: InsertRecipe) => {
+      const data = parseRecipe(raw);
+
+      const ref = await addDoc(collection(db, RECIPES_COL), {
+        ...data,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      return ref.id;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recipes"] });
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["recipes"] });
     },
   });
 }
 
 export function useUpdateRecipe() {
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { id: number; name?: string; description?: string }) => {
-      const { id, name, description } = data;
+    mutationFn: async (payload: { id: string } & Partial<InsertRecipe>) => {
+      const { id, ...rest } = payload;
+      const safe = insertRecipeSchema.partial().parse(rest);
 
-      mockRecipes = mockRecipes.map((r) =>
-        r.id === id
-          ? hydrateRecipe({
-              ...r,
-              name: name ?? r.name,
-              description: description ?? r.description ?? "",
-            })
-          : r
-      );
+      const ref = doc(db, RECIPES_COL, id);
+      await updateDoc(ref, {
+        ...safe,
+        updatedAt: serverTimestamp(),
+      });
 
-      const updated = mockRecipes.find((r) => r.id === id);
-      return updated ? hydrateRecipe(updated) : null;
+      return id;
     },
-    onSuccess: (_res, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["recipes"] });
-      queryClient.invalidateQueries({ queryKey: ["recipe", variables.id] });
+    onSuccess: async (_id, vars) => {
+      await qc.invalidateQueries({ queryKey: ["recipes"] });
+      await qc.invalidateQueries({ queryKey: ["recipe", vars.id] });
     },
   });
 }
 
 export function useDeleteRecipe() {
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: number) => {
-      mockRecipes = mockRecipes.filter((r) => r.id !== id);
-      // limpiar ingredientes asociados (opcional)
+    mutationFn: async (id: string) => {
+      const ref = doc(db, RECIPES_COL, id);
+      await deleteDoc(ref);
+      return id;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recipes"] });
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["recipes"] });
     },
   });
 }
 
-// ===== Recipe Ingredients (lo que te faltaba) =====
+// ===== Recipe Ingredients =====
+
+// acepta quantity string o number (tu UI lo manda como string)
 export function useAddRecipeIngredient() {
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { recipeId: number; ingredientId: number; quantity: string }) => {
-      const { recipeId, ingredientId, quantity } = data;
-
-      const recipe = mockRecipes.find((r) => r.id === recipeId);
-      if (!recipe) throw new Error("Recipe not found");
-
-      const ing = mockIngredients.find((i) => i.id === ingredientId);
-      if (!ing) throw new Error("Ingredient not found");
-
-      const newItem: RecipeIngredient = {
-        id: Date.now(),
-        recipeId,
-        ingredientId,
-        quantity,
-        ingredient: ing,
-      };
-
-      recipe.ingredients = [...(recipe.ingredients ?? []), newItem];
-      mockRecipes = mockRecipes.map((r) => (r.id === recipeId ? hydrateRecipe(recipe) : r));
-
-      return newItem;
-    },
-    onSuccess: (_res, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["recipe", variables.recipeId] });
-      queryClient.invalidateQueries({ queryKey: ["recipes"] });
-    },
-  });
-}
-
-export function useRemoveRecipeIngredient() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (data: { recipeId: number; ingredientId: number }) => {
+    mutationFn: async (data: {
+      recipeId: string;
+      ingredientId: string;
+      quantity: number | string;
+    }) => {
       const { recipeId, ingredientId } = data;
 
-      const recipe = mockRecipes.find((r) => r.id === recipeId);
-      if (!recipe) throw new Error("Recipe not found");
+      const qty = typeof data.quantity === "string" ? Number(data.quantity) : data.quantity;
 
-      recipe.ingredients = (recipe.ingredients ?? []).filter((it) => it.ingredientId !== ingredientId);
-      mockRecipes = mockRecipes.map((r) => (r.id === recipeId ? hydrateRecipe(recipe) : r));
+      if (!recipeId) throw new Error("recipeId missing");
+      if (!ingredientId) throw new Error("ingredientId missing");
+      if (!Number.isFinite(qty) || qty <= 0) throw new Error("quantity invalid");
+
+      const ref = await addDoc(collection(db, RECIPES_COL, recipeId, "ingredients"), {
+        ingredientId,
+        quantity: qty,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      return ref.id; // itemId
     },
-    onSuccess: (_res, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["recipe", variables.recipeId] });
-      queryClient.invalidateQueries({ queryKey: ["recipes"] });
+    onSuccess: async (_id, vars) => {
+      await qc.invalidateQueries({ queryKey: ["recipe", vars.recipeId] });
+      await qc.invalidateQueries({ queryKey: ["recipes"] });
+    },
+  });
+}
+
+// borrar por itemId (doc id de recipes/{recipeId}/ingredients/{itemId})
+export function useRemoveRecipeIngredient() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { recipeId: string; itemId: string }) => {
+      const { recipeId, itemId } = data;
+
+      if (!recipeId) throw new Error("recipeId missing");
+      if (!itemId) throw new Error("itemId missing");
+
+      const ref = doc(db, RECIPES_COL, recipeId, "ingredients", itemId);
+      await deleteDoc(ref);
+
+      return itemId;
+    },
+    onSuccess: async (_id, vars) => {
+      await qc.invalidateQueries({ queryKey: ["recipe", vars.recipeId] });
+      await qc.invalidateQueries({ queryKey: ["recipes"] });
     },
   });
 }

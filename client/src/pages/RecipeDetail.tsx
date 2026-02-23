@@ -1,4 +1,3 @@
-// client/src/pages/RecipeDetail.tsx
 import { Shell } from "@/components/layout/Shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,17 +45,18 @@ import {
 
 export default function RecipeDetail() {
   const [, params] = useRoute("/recipes/:id");
-  const recipeId = params?.id ?? "";
+  const recipeId = params?.id ?? ""; // ✅ STRING (Firestore doc id)
+  console.log("URL ID:", params?.id);
   const { data: recipe, isLoading } = useRecipe(recipeId);
   const [, setLocation] = useLocation();
 
   if (isLoading) return <RecipeDetailSkeleton />;
-  if (!recipe) return <div className="p-8 text-center text-muted-foreground">Recipe not found</div>;
+  if (!recipe) return <div className="p-8 text-center text-primary">Recipe not found</div>;
 
   const ingredientsCost = useMemo(() => {
     return (recipe.ingredients ?? []).reduce((total, item) => {
-      const pricePerUnit = Number(item.ingredient.price) / Number(item.ingredient.packageSize || 1);
-      return total + pricePerUnit * Number(item.quantity || 0);
+      const pricePerUnit = (item.ingredient.price ?? 0) / (item.ingredient.packageSize || 1);
+      return total + pricePerUnit * (item.quantity ?? 0);
     }, 0);
   }, [recipe.ingredients]);
 
@@ -67,9 +67,8 @@ export default function RecipeDetail() {
           <div className="space-y-2">
             <Button
               variant="ghost"
-              className="p-0 h-auto text-muted-foreground hover:bg-transparent"
+              className="p-0 h-auto text-muted-foreground hover:bg-transparent hover:text-foreground justify-start"
               onClick={() => setLocation("/recipes")}
-              type="button"
             >
               <ArrowLeft className="h-4 w-4 mr-1" /> Back to Recipes
             </Button>
@@ -105,7 +104,7 @@ export default function RecipeDetail() {
                     <TableHead>Quantity</TableHead>
                     <TableHead>Unit Cost</TableHead>
                     <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="w-[50px]" />
+                    <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
 
@@ -119,14 +118,14 @@ export default function RecipeDetail() {
                   ) : (
                     recipe.ingredients.map((item) => {
                       const pricePerUnit =
-                        Number(item.ingredient.price) / Number(item.ingredient.packageSize || 1);
-                      const totalCost = pricePerUnit * Number(item.quantity || 0);
+                        (item.ingredient.price ?? 0) / (item.ingredient.packageSize || 1);
+                      const totalCost = pricePerUnit * (item.quantity ?? 0);
 
                       return (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">{item.ingredient.name}</TableCell>
                           <TableCell>
-                            {Number(item.quantity).toString()} {item.ingredient.unit}
+                            {item.quantity} {item.ingredient.unit}
                           </TableCell>
                           <TableCell className="text-muted-foreground text-xs">
                             ${pricePerUnit.toFixed(4)}/{item.ingredient.unit}
@@ -151,6 +150,7 @@ export default function RecipeDetail() {
               <CardHeader>
                 <CardTitle className="font-display text-xl text-primary">Cost Analysis</CardTitle>
               </CardHeader>
+
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-end border-b pb-4 border-primary/10">
                   <span className="text-muted-foreground font-medium">Total Cost</span>
@@ -166,9 +166,7 @@ export default function RecipeDetail() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Suggested Price (30%)</span>
-                    <span className="font-medium">
-                      ${(ingredientsCost === 0 ? 0 : ingredientsCost / 0.3).toFixed(2)}
-                    </span>
+                    <span className="font-medium">${(ingredientsCost / 0.3).toFixed(2)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -182,8 +180,8 @@ export default function RecipeDetail() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
-                  Costs are calculated based on current ingredient prices. Updating ingredient
-                  prices will automatically update this recipe&apos;s cost.
+                  Costs are calculated based on current ingredient prices.
+                  Updating ingredient prices will automatically update this recipe&apos;s cost.
                 </p>
               </CardContent>
             </Card>
@@ -200,32 +198,30 @@ function AddIngredientDialog({ recipeId }: { recipeId: string }) {
   const { mutate, isPending } = useAddRecipeIngredient();
   const { toast } = useToast();
 
-  const [selectedIngredient, setSelectedIngredient] = useState<string>("");
+  const [selectedIngredientId, setSelectedIngredientId] = useState<string>("");
   const [quantity, setQuantity] = useState<string>("");
 
-  const ingredient = ingredients?.find((i) => i.id === selectedIngredient);
+  const selected = ingredients?.find((i) => i.id === selectedIngredientId);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedIngredient) return;
-
-    const q = Number(quantity);
-    if (!Number.isFinite(q) || q <= 0) {
-      toast({ title: "Error", description: "Quantity must be > 0", variant: "destructive" });
-      return;
-    }
+    if (!selectedIngredientId || !quantity) return;
 
     mutate(
-      { recipeId, ingredientId: selectedIngredient, quantity: q },
+      {
+        recipeId,
+        ingredientId: selectedIngredientId, // ✅ STRING
+        quantity: Number(quantity),
+      },
       {
         onSuccess: () => {
           toast({ title: "Added", description: "Ingredient added to recipe" });
           setOpen(false);
           setQuantity("");
-          setSelectedIngredient("");
+          setSelectedIngredientId("");
         },
         onError: (err: any) => {
-          toast({ title: "Error", description: err?.message ?? "Failed", variant: "destructive" });
+          toast({ title: "Error", description: err?.message ?? "Error", variant: "destructive" });
         },
       }
     );
@@ -247,7 +243,7 @@ function AddIngredientDialog({ recipeId }: { recipeId: string }) {
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
           <div className="space-y-2">
             <Label>Select Ingredient</Label>
-            <Select value={selectedIngredient} onValueChange={setSelectedIngredient}>
+            <Select value={selectedIngredientId} onValueChange={setSelectedIngredientId}>
               <SelectTrigger>
                 <SelectValue placeholder="Search ingredients..." />
               </SelectTrigger>
@@ -262,7 +258,7 @@ function AddIngredientDialog({ recipeId }: { recipeId: string }) {
           </div>
 
           <div className="space-y-2">
-            <Label>Quantity {ingredient ? `(${ingredient.unit})` : ""}</Label>
+            <Label>Quantity {selected ? `(${selected.unit})` : ""}</Label>
             <Input
               type="number"
               step="0.01"
@@ -275,7 +271,7 @@ function AddIngredientDialog({ recipeId }: { recipeId: string }) {
           <DialogFooter className="pt-4">
             <Button
               type="submit"
-              disabled={isPending || !selectedIngredient || !quantity}
+              disabled={isPending || !selectedIngredientId || !quantity}
               className="btn-primary w-full"
             >
               {isPending ? "Adding..." : "Add to Recipe"}
@@ -316,7 +312,7 @@ function DeleteRecipeDialog({ id, name }: { id: string; name: string }) {
         setLocation("/recipes");
       },
       onError: (err: any) => {
-        toast({ title: "Error", description: err?.message ?? "Failed", variant: "destructive" });
+        toast({ title: "Error", description: err?.message ?? "Error", variant: "destructive" });
       },
     });
   };
@@ -343,12 +339,11 @@ function DeleteRecipeDialog({ id, name }: { id: string; name: string }) {
         </AlertDialogHeader>
 
         <AlertDialogFooter>
-          <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={onDelete}
             disabled={isPending}
             className="bg-destructive hover:bg-destructive/90"
-            type="button"
           >
             {isPending ? "Deleting..." : "Delete Recipe"}
           </AlertDialogAction>

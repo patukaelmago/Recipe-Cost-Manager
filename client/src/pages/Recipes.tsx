@@ -92,12 +92,12 @@ function RecipeCard({ recipe }: { recipe: { id: string; name: string; descriptio
         </div>
       </CardContent>
       <CardFooter className="border-t bg-muted/20 p-4">
-        <Link href={`/recipes/${recipe.id}`} className="w-full">
-          <Button variant="ghost" className="w-full justify-between group-hover:text-primary">
-            View Details
-            <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
-          </Button>
-        </Link>
+      <Link href={`/recipes/${recipe.id}`} className="w-full">
+  <Button variant="ghost" className="w-full justify-between group-hover:text-primary">
+    View Details
+    <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+  </Button>
+</Link>
       </CardFooter>
     </Card>
   );

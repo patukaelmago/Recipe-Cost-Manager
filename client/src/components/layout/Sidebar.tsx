@@ -4,8 +4,8 @@ import { ChefHat, LayoutDashboard, UtensilsCrossed } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Ingredients", href: "/ingredients", icon: ChefHat },
-  { name: "Recipes", href: "/recipes", icon: UtensilsCrossed },
+  { name: "Ingredientes", href: "/ingredients", icon: ChefHat },
+  { name: "Recetas", href: "/recipes", icon: UtensilsCrossed },
 ];
 
 export function Sidebar() {
@@ -50,7 +50,7 @@ export function Sidebar() {
 
       <div className="border-t pt-4 px-2">
         <p className="text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} RecipeCost App
+          &copy; {new Date().getFullYear()} RecipeCost App by Patuka Technologies.
         </p>
       </div>
     </div>

@@ -1,12 +1,26 @@
 import { Shell } from "@/components/layout/Shell";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useRecipes, useCreateRecipe } from "@/hooks/use-recipes";
 import { Plus, Search, UtensilsCrossed, ArrowRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
@@ -32,11 +46,13 @@ export default function Recipes() {
       <div className="flex flex-col gap-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight font-display mb-1">Recipes</h1>
-            <p className="text-muted-foreground">Manage your menu items and calculate costs.</p>
+            <h1 className="text-3xl font-bold tracking-tight font-display mb-1">
+              Recetas
+            </h1>
+            <p className="text-muted-foreground">Calculá el costo de tus items</p>
           </div>
           <Button onClick={() => setIsCreateOpen(true)} className="btn-primary">
-            <Plus className="mr-2 h-4 w-4" /> New Recipe
+            <Plus className="mr-2 h-4 w-4" /> Nueva Receta
           </Button>
         </div>
 
@@ -44,7 +60,7 @@ export default function Recipes() {
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search recipes..."
+              placeholder="Busca Recetas..."
               className="pl-9 bg-card border-border/50"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -54,15 +70,15 @@ export default function Recipes() {
 
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {isLoading ? (
-            Array(6).fill(0).map((_, i) => <RecipeSkeleton key={i} />)
+            Array(6)
+              .fill(0)
+              .map((_, i) => <RecipeSkeleton key={i} />)
           ) : filteredRecipes.length === 0 ? (
             <div className="col-span-full text-center py-12 text-muted-foreground">
-              No recipes found. Create your first recipe!
+              No se encontraron recetas. Crea tu primer receta!
             </div>
           ) : (
-            filteredRecipes.map((recipe) => (
-              <RecipeCard key={recipe.id} recipe={recipe} />
-            ))
+            filteredRecipes.map((recipe) => <RecipeCard key={recipe.id} recipe={recipe} />)
           )}
         </div>
       </div>
@@ -83,21 +99,24 @@ function RecipeCard({ recipe }: { recipe: { id: string; name: string; descriptio
         </div>
         <CardTitle className="font-display text-xl line-clamp-1">{recipe.name}</CardTitle>
         <CardDescription className="line-clamp-2 h-10">
-          {recipe.description || "No description provided."}
+          {recipe.description || "No se proporciona descripción."}
         </CardDescription>
       </CardHeader>
+
       <CardContent className="flex-1">
         <div className="text-sm text-muted-foreground">
-          Click details to manage ingredients and view costs.
+        Haga clic en los detalles para administrar los ingredientes y ver los costos.
         </div>
       </CardContent>
+
       <CardFooter className="border-t bg-muted/20 p-4">
-      <Link href={`/recipes/${recipe.id}`} className="w-full">
-  <Button variant="ghost" className="w-full justify-between group-hover:text-primary">
-    View Details
-    <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
-  </Button>
-</Link>
+        {/* CLAVE: NO /recipes acá. Tu base ya es /recipes */}
+        <Link href={`/${recipe.id}`} className="w-full">
+          <Button variant="ghost" className="w-full justify-between group-hover:text-primary" type="button">
+            Ver Detalles
+            <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+          </Button>
+        </Link>
       </CardFooter>
     </Card>
   );
@@ -121,16 +140,19 @@ function RecipeSkeleton() {
   );
 }
 
-function CreateRecipeDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+function CreateRecipeDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const { mutate, isPending } = useCreateRecipe();
   const { toast } = useToast();
 
   const form = useForm<InsertRecipe>({
     resolver: zodResolver(insertRecipeSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-    },
+    defaultValues: { name: "", description: "" },
   });
 
   const onSubmit = (data: InsertRecipe) => {
@@ -142,7 +164,7 @@ function CreateRecipeDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       },
       onError: (err: any) => {
         toast({ title: "Error", description: err.message, variant: "destructive" });
-      }
+      },
     });
   };
 
@@ -151,10 +173,9 @@ function CreateRecipeDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Create New Recipe</DialogTitle>
-          <DialogDescription>
-            Start by giving your recipe a name and description.
-          </DialogDescription>
+          <DialogDescription>Start by giving your recipe a name and description.</DialogDescription>
         </DialogHeader>
+
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
           <div className="space-y-2">
             <Label htmlFor="name">Recipe Name</Label>

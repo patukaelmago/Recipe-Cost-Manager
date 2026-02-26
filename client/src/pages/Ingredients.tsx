@@ -64,14 +64,14 @@ export default function IngredientsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight font-display mb-1">
-              Ingredients
+              Ingredientes
             </h1>
             <p className="text-muted-foreground">
-              Manage your raw materials and costs.
+            Gestione sus materias primas y costos.
             </p>
           </div>
           <Button onClick={() => setIsCreateOpen(true)} className="btn-primary">
-            <Plus className="mr-2 h-4 w-4" /> Add Ingredient
+            <Plus className="mr-2 h-4 w-4" /> Agregar Ingrediente
           </Button>
         </div>
 
@@ -79,7 +79,7 @@ export default function IngredientsPage() {
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search ingredients..."
+              placeholder="Buscar ingredientes..."
               className="pl-9 bg-card border-border/50"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -91,12 +91,12 @@ export default function IngredientsPage() {
           <Table>
             <TableHeader className="bg-muted/30">
               <TableRow>
-                <TableHead className="w-[300px] font-semibold">Name</TableHead>
-                <TableHead className="font-semibold">Unit</TableHead>
-                <TableHead className="font-semibold">Package Size</TableHead>
-                <TableHead className="font-semibold">Package Price</TableHead>
-                <TableHead className="font-semibold">Cost per Unit</TableHead>
-                <TableHead className="text-right font-semibold">Actions</TableHead>
+                <TableHead className="w-[300px] font-semibold">Nombre</TableHead>
+                <TableHead className="font-semibold">Unidad</TableHead>
+                <TableHead className="font-semibold">Tamaño del Paquete</TableHead>
+                <TableHead className="font-semibold">Precio del Paquete</TableHead>
+                <TableHead className="font-semibold">Costo por Unidad</TableHead>
+                <TableHead className="text-right font-semibold">Aciones</TableHead>
               </TableRow>
             </TableHeader>
 
@@ -104,7 +104,7 @@ export default function IngredientsPage() {
               {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-24 text-center">
-                    Loading ingredients...
+                    Cargando ingredientes...
                   </TableCell>
                 </TableRow>
               ) : filteredIngredients.length === 0 ? (
@@ -113,7 +113,7 @@ export default function IngredientsPage() {
                     colSpan={6}
                     className="h-32 text-center text-muted-foreground"
                   >
-                    No ingredients found. Add one to get started.
+                    No se encontraron ingredientes. Añade uno para empezar.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -200,7 +200,7 @@ function IngredientForm({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="packageSize">Package Size</Label>
+          <Label htmlFor="packageSize">Tamaño del Paquete</Label>
           <Input
             id="packageSize"
             type="number"
@@ -217,7 +217,7 @@ function IngredientForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="price">Price ($)</Label>
+        <Label htmlFor="price">Precio ($)</Label>
         <Input
           id="price"
           type="number"
@@ -278,9 +278,9 @@ function CreateIngredientDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add Ingredient</DialogTitle>
+          <DialogTitle>Agregar Ingrediente</DialogTitle>
           <DialogDescription>
-            Enter the details for a new raw ingredient.
+          Introduzca los detalles de un nuevo ingrediente crudo.
           </DialogDescription>
         </DialogHeader>
         <IngredientForm onSubmit={onSubmit} isLoading={isPending} />
@@ -383,12 +383,11 @@ function DeleteIngredientDialog({ id, name }: { id: string; name: string }) {
         <AlertDialogHeader>
           <AlertDialogTitle>Delete {name}?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the
-            ingredient. Any recipes using this ingredient will need to be
-            updated.
+          Esta acción no se puede deshacer. 
+          Eliminará permanentemente el ingrediente. 
+          Cualquier receta que lo use deberá actualizarse.
           </AlertDialogDescription>
         </AlertDialogHeader>
-
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction

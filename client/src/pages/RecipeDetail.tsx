@@ -44,21 +44,24 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function RecipeDetail() {
-  const [, params] = useRoute("/recipes/:id");
-  const recipeId = params?.id ?? ""; // ✅ STRING (Firestore doc id)
-  console.log("URL ID:", params?.id);
+  // CLAVE: sin /recipes
+  const [, params] = useRoute("/:id");
+  const recipeId = params?.id ?? "";
+
   const { data: recipe, isLoading } = useRecipe(recipeId);
   const [, setLocation] = useLocation();
 
-  if (isLoading) return <RecipeDetailSkeleton />;
-  if (!recipe) return <div className="p-8 text-center text-primary">Recipe not found</div>;
-
+  // CLAVE: hooks SIEMPRE antes de returns
   const ingredientsCost = useMemo(() => {
-    return (recipe.ingredients ?? []).reduce((total, item) => {
+    const items = recipe?.ingredients ?? [];
+    return items.reduce((total, item) => {
       const pricePerUnit = (item.ingredient.price ?? 0) / (item.ingredient.packageSize || 1);
       return total + pricePerUnit * (item.quantity ?? 0);
     }, 0);
-  }, [recipe.ingredients]);
+  }, [recipe?.ingredients]);
+
+  if (isLoading) return <RecipeDetailSkeleton />;
+  if (!recipe) return <div className="p-8 text-center text-primary">Recipe not found</div>;
 
   return (
     <Shell>
@@ -68,9 +71,10 @@ export default function RecipeDetail() {
             <Button
               variant="ghost"
               className="p-0 h-auto text-muted-foreground hover:bg-transparent hover:text-foreground justify-start"
-              onClick={() => setLocation("/recipes")}
+              onClick={() => setLocation("/")}
+              type="button"
             >
-              <ArrowLeft className="h-4 w-4 mr-1" /> Back to Recipes
+              <ArrowLeft className="h-4 w-4 mr-1" /> Volver a Recetas
             </Button>
 
             <h1 className="text-4xl font-bold font-display tracking-tight text-foreground">
@@ -100,9 +104,9 @@ export default function RecipeDetail() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Ingredient</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Unit Cost</TableHead>
+                    <TableHead>Ingrediente</TableHead>
+                    <TableHead>Cantidad</TableHead>
+                    <TableHead>Costo Unitario</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
@@ -112,7 +116,7 @@ export default function RecipeDetail() {
                   {(recipe.ingredients ?? []).length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                        No ingredients added yet.
+                      Aún no se han añadido ingredientes.
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -148,12 +152,12 @@ export default function RecipeDetail() {
           <div className="space-y-6">
             <Card className="bg-primary/5 border-primary/20 shadow-lg shadow-primary/5">
               <CardHeader>
-                <CardTitle className="font-display text-xl text-primary">Cost Analysis</CardTitle>
+                <CardTitle className="font-display text-xl text-primary">Análisis de costos</CardTitle>
               </CardHeader>
 
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-end border-b pb-4 border-primary/10">
-                  <span className="text-muted-foreground font-medium">Total Cost</span>
+                  <span className="text-muted-foreground font-medium">Costo Total</span>
                   <span className="text-4xl font-bold text-foreground font-display">
                     ${ingredientsCost.toFixed(2)}
                   </span>
@@ -161,11 +165,11 @@ export default function RecipeDetail() {
 
                 <div className="space-y-2 pt-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Ingredient Count</span>
+                    <span className="text-muted-foreground">Recuento de ingredientes</span>
                     <span className="font-medium">{(recipe.ingredients ?? []).length}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Suggested Price (30%)</span>
+                    <span className="text-muted-foreground">Precio sugerido (30%)</span>
                     <span className="font-medium">${(ingredientsCost / 0.3).toFixed(2)}</span>
                   </div>
                 </div>
@@ -175,13 +179,13 @@ export default function RecipeDetail() {
             <Card className="border-border/50">
               <CardHeader>
                 <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                  Notes
+                  Notas
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
-                  Costs are calculated based on current ingredient prices.
-                  Updating ingredient prices will automatically update this recipe&apos;s cost.
+                Los costos se calculan según los precios actuales de los ingredientes. 
+                Al actualizar los precios de los ingredientes, el costo de esta receta se actualizará automáticamente.
                 </p>
               </CardContent>
             </Card>
@@ -210,7 +214,7 @@ function AddIngredientDialog({ recipeId }: { recipeId: string }) {
     mutate(
       {
         recipeId,
-        ingredientId: selectedIngredientId, // ✅ STRING
+        ingredientId: selectedIngredientId,
         quantity: Number(quantity),
       },
       {
@@ -230,19 +234,23 @@ function AddIngredientDialog({ recipeId }: { recipeId: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="bg-primary/10 text-primary hover:bg-primary/20 shadow-none" type="button">
-          <Plus className="mr-2 h-4 w-4" /> Add Item
+        <Button
+          size="sm"
+          className="bg-primary/10 text-primary hover:bg-primary/20 shadow-none"
+          type="button"
+        >
+          <Plus className="mr-2 h-4 w-4" /> Agregar Item
         </Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add Ingredient</DialogTitle>
+          <DialogTitle>Agregar Ingrediente</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
           <div className="space-y-2">
-            <Label>Select Ingredient</Label>
+            <Label>Elegir Ingrediente</Label>
             <Select value={selectedIngredientId} onValueChange={setSelectedIngredientId}>
               <SelectTrigger>
                 <SelectValue placeholder="Search ingredients..." />
@@ -258,7 +266,7 @@ function AddIngredientDialog({ recipeId }: { recipeId: string }) {
           </div>
 
           <div className="space-y-2">
-            <Label>Quantity {selected ? `(${selected.unit})` : ""}</Label>
+            <Label>Cantidad {selected ? `(${selected.unit})` : ""}</Label>
             <Input
               type="number"
               step="0.01"
@@ -309,7 +317,7 @@ function DeleteRecipeDialog({ id, name }: { id: string; name: string }) {
     mutate(id, {
       onSuccess: () => {
         toast({ title: "Deleted", description: "Recipe deleted successfully" });
-        setLocation("/recipes");
+        setLocation("/");
       },
       onError: (err: any) => {
         toast({ title: "Error", description: err?.message ?? "Error", variant: "destructive" });
@@ -332,9 +340,9 @@ function DeleteRecipeDialog({ id, name }: { id: string; name: string }) {
 
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete Recipe?</AlertDialogTitle>
+          <AlertDialogTitle>Borrar Receta?</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete &quot;{name}&quot;? This action cannot be undone.
+            Estàs seguro de borrar la Receta &quot;{name}&quot;? This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
 

@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { ChefHat, LayoutDashboard, UtensilsCrossed } from "lucide-react";
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Ingredientes", href: "/ingredients", icon: ChefHat },
   { name: "Recetas", href: "/recipes", icon: UtensilsCrossed },
 ];

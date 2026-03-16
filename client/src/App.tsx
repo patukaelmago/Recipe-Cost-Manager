@@ -14,9 +14,10 @@ function Router() {
   return (
     <Switch>
       {/* OJO: si tu app está servida bajo /recipes (base), acá NO repetimos /recipes */}
-      <Route path="/" component={Recipes} />
+      <Route path="/" component={Dashboard} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/ingredients" component={Ingredients} />
+      <Route path="/recipes" component={Recipes} />
       <Route path="/:id" component={RecipeDetail} />
       <Route component={NotFound} />
     </Switch>

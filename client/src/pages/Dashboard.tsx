@@ -24,8 +24,8 @@ export default function Dashboard() {
 
   // Simple chart data - just counting items for now as a placeholder for more complex cost analytics
   const chartData = [
-    { name: "Ingredients", total: totalIngredients },
-    { name: "Recipes", total: totalRecipes },
+    { name: "Ingredientes", total: totalIngredients },
+    { name: "Recetas", total: totalRecipes },
   ];
 
   return (
@@ -33,7 +33,7 @@ export default function Dashboard() {
       <div className="flex flex-col gap-8">
         <div>
           <h1 className="text-3xl font-bold tracking-tight font-display mb-2">Dashboard</h1>
-          <p className="text-muted-foreground">Overview of your kitchen costs and inventory.</p>
+          <p className="text-muted-foreground">Resumen de los costos e inventario de su cocina.</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -70,7 +70,7 @@ export default function Dashboard() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <Card className="col-span-4 shadow-sm border-border/50">
             <CardHeader>
-              <CardTitle className="font-display text-xl">Inventory Overview</CardTitle>
+              <CardTitle className="font-display text-xl">Descripción general del inventario</CardTitle>
             </CardHeader>
             <CardContent className="pl-2">
               <div className="h-[300px] w-full">
@@ -108,7 +108,7 @@ export default function Dashboard() {
           </Card>
           <Card className="col-span-3 shadow-sm border-border/50">
             <CardHeader>
-              <CardTitle className="font-display text-xl">Recent Recipes</CardTitle>
+              <CardTitle className="font-display text-xl">Recetas recientes</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">

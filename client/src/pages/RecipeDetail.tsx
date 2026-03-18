@@ -46,10 +46,11 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function RecipeDetail() {
-  const [, params] = useRoute("/:id");
+  const [, params] = useRoute("/:tenant/recipes/:id");
+  const tenant = params?.tenant ?? "picaña";
   const recipeId = params?.id ?? "";
 
-  const { data: recipe, isLoading } = useRecipe(recipeId);
+  const { data: recipe, isLoading } = useRecipe(recipeId, tenant);
   const [, setLocation] = useLocation();
 
   const ingredientsCost = useMemo(() => {
@@ -71,7 +72,7 @@ export default function RecipeDetail() {
             <Button
               variant="ghost"
               className="p-0 h-auto text-muted-foreground hover:bg-transparent hover:text-foreground justify-start"
-              onClick={() => setLocation("/")}
+              onClick={() => setLocation(`/${tenant}/recipes`)}
               type="button"
             >
               <ArrowLeft className="h-4 w-4 mr-1" /> Volver a Recetas
@@ -88,6 +89,7 @@ export default function RecipeDetail() {
           <div className="flex items-center gap-2">
             <EditRecipeDialog
               id={recipeId}
+              tenant={tenant}
               name={recipe.name}
               description={recipe.description || ""}
             />
@@ -96,7 +98,7 @@ export default function RecipeDetail() {
               <Printer className="h-4 w-4" />
             </Button>
 
-            <DeleteRecipeDialog id={recipeId} name={recipe.name} />
+            <DeleteRecipeDialog id={recipeId} tenant={tenant} name={recipe.name} />
           </div>
         </div>
 
@@ -104,7 +106,7 @@ export default function RecipeDetail() {
           <Card className="md:col-span-2 shadow-sm border-border/50">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="font-display text-xl">Ingredients</CardTitle>
-              <AddIngredientDialog recipeId={recipeId} />
+              <AddIngredientDialog recipeId={recipeId} tenant={tenant} />
             </CardHeader>
 
             <CardContent>
@@ -145,7 +147,11 @@ export default function RecipeDetail() {
                             ${totalCost.toFixed(2)}
                           </TableCell>
                           <TableCell>
-                            <RemoveIngredientButton recipeId={recipeId} itemId={item.id} />
+                            <RemoveIngredientButton
+                              recipeId={recipeId}
+                              itemId={item.id}
+                              tenant={tenant}
+                            />
                           </TableCell>
                         </TableRow>
                       );
@@ -205,17 +211,19 @@ export default function RecipeDetail() {
 
 function EditRecipeDialog({
   id,
+  tenant,
   name,
   description,
 }: {
   id: string;
+  tenant: string;
   name: string;
   description: string;
 }) {
   const [open, setOpen] = useState(false);
   const [recipeName, setRecipeName] = useState(name);
   const [recipeDescription, setRecipeDescription] = useState(description);
-  const { mutate, isPending } = useUpdateRecipe();
+  const { mutate, isPending } = useUpdateRecipe(tenant);
   const { toast } = useToast();
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -312,10 +320,16 @@ function EditRecipeDialog({
   );
 }
 
-function AddIngredientDialog({ recipeId }: { recipeId: string }) {
+function AddIngredientDialog({
+  recipeId,
+  tenant,
+}: {
+  recipeId: string;
+  tenant: string;
+}) {
   const [open, setOpen] = useState(false);
-  const { data: ingredients } = useIngredients();
-  const { mutate, isPending } = useAddRecipeIngredient();
+  const { data: ingredients } = useIngredients(tenant);
+  const { mutate, isPending } = useAddRecipeIngredient(tenant);
   const { toast } = useToast();
 
   const [selectedIngredientId, setSelectedIngredientId] = useState<string>("");
@@ -407,8 +421,16 @@ function AddIngredientDialog({ recipeId }: { recipeId: string }) {
   );
 }
 
-function RemoveIngredientButton({ recipeId, itemId }: { recipeId: string; itemId: string }) {
-  const { mutate, isPending } = useRemoveRecipeIngredient();
+function RemoveIngredientButton({
+  recipeId,
+  itemId,
+  tenant,
+}: {
+  recipeId: string;
+  itemId: string;
+  tenant: string;
+}) {
+  const { mutate, isPending } = useRemoveRecipeIngredient(tenant);
 
   return (
     <Button
@@ -424,8 +446,16 @@ function RemoveIngredientButton({ recipeId, itemId }: { recipeId: string; itemId
   );
 }
 
-function DeleteRecipeDialog({ id, name }: { id: string; name: string }) {
-  const { mutate, isPending } = useDeleteRecipe();
+function DeleteRecipeDialog({
+  id,
+  tenant,
+  name,
+}: {
+  id: string;
+  tenant: string;
+  name: string;
+}) {
+  const { mutate, isPending } = useDeleteRecipe(tenant);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -433,7 +463,7 @@ function DeleteRecipeDialog({ id, name }: { id: string; name: string }) {
     mutate(id, {
       onSuccess: () => {
         toast({ title: "Deleted", description: "Recipe deleted successfully" });
-        setLocation("/");
+        setLocation(`/${tenant}/recipes`);
       },
       onError: (err: any) => {
         toast({ title: "Error", description: err?.message ?? "Error", variant: "destructive" });

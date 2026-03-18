@@ -31,6 +31,7 @@ import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertIngredientSchema, type InsertIngredient } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { useRoute } from "wouter";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,11 +44,13 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-/** ✅ Tipo derivado del hook (no depende de exports del hook) */
 type Ingredient = NonNullable<ReturnType<typeof useIngredients>["data"]>[number];
 
 export default function IngredientsPage() {
-  const { data: ingredients, isLoading } = useIngredients();
+  const [, params] = useRoute("/:tenant/ingredients");
+  const tenant = params?.tenant ?? "picania";
+
+  const { data: ingredients, isLoading } = useIngredients(tenant);
   const [search, setSearch] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
@@ -67,7 +70,7 @@ export default function IngredientsPage() {
               Ingredientes
             </h1>
             <p className="text-muted-foreground">
-            Gestione sus materias primas y costos.
+              Gestione sus materias primas y costos.
             </p>
           </div>
           <Button onClick={() => setIsCreateOpen(true)} className="btn-primary">
@@ -118,7 +121,7 @@ export default function IngredientsPage() {
                 </TableRow>
               ) : (
                 filteredIngredients.map((ingredient) => (
-                  <IngredientRow key={ingredient.id} ingredient={ingredient} />
+                  <IngredientRow key={ingredient.id} ingredient={ingredient} tenant={tenant} />
                 ))
               )}
             </TableBody>
@@ -126,12 +129,22 @@ export default function IngredientsPage() {
         </div>
       </div>
 
-      <CreateIngredientDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
+      <CreateIngredientDialog
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+        tenant={tenant}
+      />
     </Shell>
   );
 }
 
-function IngredientRow({ ingredient }: { ingredient: Ingredient }) {
+function IngredientRow({
+  ingredient,
+  tenant,
+}: {
+  ingredient: Ingredient;
+  tenant: string;
+}) {
   const price = ingredient.price;
   const size = ingredient.packageSize;
   const cpu = size > 0 ? price / size : 0;
@@ -147,8 +160,8 @@ function IngredientRow({ ingredient }: { ingredient: Ingredient }) {
       </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-2">
-          <EditIngredientDialog ingredient={ingredient} />
-          <DeleteIngredientDialog id={ingredient.id} name={ingredient.name} />
+          <EditIngredientDialog ingredient={ingredient} tenant={tenant} />
+          <DeleteIngredientDialog id={ingredient.id} name={ingredient.name} tenant={tenant} />
         </div>
       </TableCell>
     </TableRow>
@@ -176,10 +189,7 @@ function IngredientForm({
   });
 
   return (
-    <form
-      onSubmit={form.handleSubmit(onSubmit)}
-      className="space-y-4 pt-4"
-    >
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
       <div className="space-y-2">
         <Label htmlFor="name">Name</Label>
         <Input id="name" {...form.register("name")} placeholder="e.g. Flour" />
@@ -248,11 +258,13 @@ function IngredientForm({
 function CreateIngredientDialog({
   open,
   onOpenChange,
+  tenant,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  tenant: string;
 }) {
-  const { mutate, isPending } = useCreateIngredient();
+  const { mutate, isPending } = useCreateIngredient(tenant);
   const { toast } = useToast();
 
   const onSubmit: SubmitHandler<InsertIngredient> = (data) => {
@@ -280,7 +292,7 @@ function CreateIngredientDialog({
         <DialogHeader>
           <DialogTitle>Agregar Ingrediente</DialogTitle>
           <DialogDescription>
-          Introduzca los detalles de un nuevo ingrediente crudo.
+            Introduzca los detalles de un nuevo ingrediente crudo.
           </DialogDescription>
         </DialogHeader>
         <IngredientForm onSubmit={onSubmit} isLoading={isPending} />
@@ -289,9 +301,15 @@ function CreateIngredientDialog({
   );
 }
 
-function EditIngredientDialog({ ingredient }: { ingredient: Ingredient }) {
+function EditIngredientDialog({
+  ingredient,
+  tenant,
+}: {
+  ingredient: Ingredient;
+  tenant: string;
+}) {
   const [open, setOpen] = useState(false);
-  const { mutate, isPending } = useUpdateIngredient();
+  const { mutate, isPending } = useUpdateIngredient(tenant);
   const { toast } = useToast();
 
   const onSubmit: SubmitHandler<InsertIngredient> = (data) => {
@@ -348,8 +366,16 @@ function EditIngredientDialog({ ingredient }: { ingredient: Ingredient }) {
   );
 }
 
-function DeleteIngredientDialog({ id, name }: { id: string; name: string }) {
-  const { mutate, isPending } = useDeleteIngredient();
+function DeleteIngredientDialog({
+  id,
+  name,
+  tenant,
+}: {
+  id: string;
+  name: string;
+  tenant: string;
+}) {
+  const { mutate, isPending } = useDeleteIngredient(tenant);
   const { toast } = useToast();
 
   const onDelete = () => {
@@ -383,9 +409,9 @@ function DeleteIngredientDialog({ id, name }: { id: string; name: string }) {
         <AlertDialogHeader>
           <AlertDialogTitle>Delete {name}?</AlertDialogTitle>
           <AlertDialogDescription>
-          Esta acción no se puede deshacer. 
-          Eliminará permanentemente el ingrediente. 
-          Cualquier receta que lo use deberá actualizarse.
+            Esta acción no se puede deshacer.
+            Eliminará permanentemente el ingrediente.
+            Cualquier receta que lo use deberá actualizarse.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

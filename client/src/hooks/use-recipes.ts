@@ -40,7 +40,7 @@ export type Recipe = {
 const TENANTS_COL = "tenants" as const;
 const RECIPES_COL = "recipes" as const;
 const INGREDIENTS_COL = "ingredients" as const;
-const DEFAULT_TENANT_ID = "picaña";
+const DEFAULT_TENANT_ID = "picania";
 
 function parseRecipe(input: unknown): InsertRecipe {
   return insertRecipeSchema.parse(input);

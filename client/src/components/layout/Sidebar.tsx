@@ -2,14 +2,17 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { ChefHat, LayoutDashboard, UtensilsCrossed } from "lucide-react";
 
-const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Ingredientes", href: "/ingredients", icon: ChefHat },
-  { name: "Recetas", href: "/recipes", icon: UtensilsCrossed },
-];
-
 export function Sidebar() {
   const [location] = useLocation();
+
+  // 👇 sacamos el tenant de la URL (/picania/...)
+  const tenant = location.split("/")[1] || "";
+
+  const navigation = [
+    { name: "Dashboard", href: `/${tenant}/dashboard`, icon: LayoutDashboard },
+    { name: "Ingredientes", href: `/${tenant}/ingredients`, icon: ChefHat },
+    { name: "Recetas", href: `/${tenant}/recipes`, icon: UtensilsCrossed },
+  ];
 
   return (
     <div className="flex h-full min-h-screen w-64 flex-col border-r bg-card/50 backdrop-blur-sm px-4 py-8">
@@ -25,6 +28,7 @@ export function Sidebar() {
       <nav className="flex-1 space-y-1">
         {navigation.map((item) => {
           const isActive = location === item.href;
+
           return (
             <Link key={item.name} href={item.href}>
               <div
@@ -38,7 +42,9 @@ export function Sidebar() {
                 <item.icon
                   className={cn(
                     "h-5 w-5 transition-colors",
-                    isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                    isActive
+                      ? "text-primary"
+                      : "text-muted-foreground group-hover:text-foreground"
                   )}
                 />
                 {item.name}

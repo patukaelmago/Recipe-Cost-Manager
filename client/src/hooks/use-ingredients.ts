@@ -25,7 +25,7 @@ export type Ingredient = {
 
 const TENANTS_COL = "tenants" as const;
 const INGREDIENTS_COL = "ingredients" as const;
-const DEFAULT_TENANT_ID = "picaña";
+const DEFAULT_TENANT_ID = "picania";
 
 function parseIngredient(input: unknown): InsertIngredient {
   return insertIngredientSchema.parse(input);

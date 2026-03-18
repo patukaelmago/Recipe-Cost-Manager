@@ -31,7 +31,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Recipes() {
   const [, params] = useRoute("/:tenant/recipes");
-  const tenant = params?.tenant ?? "picaña";
+  const tenant = params?.tenant ?? "picania";
 
   const { data: recipes, isLoading } = useRecipes(tenant);
   const [search, setSearch] = useState("");

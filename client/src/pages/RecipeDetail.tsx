@@ -47,7 +47,7 @@ import {
 
 export default function RecipeDetail() {
   const [, params] = useRoute("/:tenant/recipes/:id");
-  const tenant = params?.tenant ?? "picaña";
+  const tenant = params?.tenant ?? "picania";
   const recipeId = params?.id ?? "";
 
   const { data: recipe, isLoading } = useRecipe(recipeId, tenant);

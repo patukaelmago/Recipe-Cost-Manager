@@ -7,10 +7,11 @@ import {
   useAddRecipeIngredient,
   useRemoveRecipeIngredient,
   useDeleteRecipe,
+  useUpdateRecipe,
 } from "@/hooks/use-recipes";
 import { useIngredients } from "@/hooks/use-ingredients";
 import { useRoute, useLocation } from "wouter";
-import { ArrowLeft, Plus, Trash2, Printer } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Printer, Pencil } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -29,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -44,14 +46,12 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function RecipeDetail() {
-  // CLAVE: sin /recipes
   const [, params] = useRoute("/:id");
   const recipeId = params?.id ?? "";
 
   const { data: recipe, isLoading } = useRecipe(recipeId);
   const [, setLocation] = useLocation();
 
-  // CLAVE: hooks SIEMPRE antes de returns
   const ingredientsCost = useMemo(() => {
     const items = recipe?.ingredients ?? [];
     return items.reduce((total, item) => {
@@ -86,9 +86,16 @@ export default function RecipeDetail() {
           </div>
 
           <div className="flex items-center gap-2">
+            <EditRecipeDialog
+              id={recipeId}
+              name={recipe.name}
+              description={recipe.description || ""}
+            />
+
             <Button variant="outline" size="icon" type="button">
               <Printer className="h-4 w-4" />
             </Button>
+
             <DeleteRecipeDialog id={recipeId} name={recipe.name} />
           </div>
         </div>
@@ -116,7 +123,7 @@ export default function RecipeDetail() {
                   {(recipe.ingredients ?? []).length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      Aún no se han añadido ingredientes.
+                        Aún no se han añadido ingredientes.
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -184,8 +191,8 @@ export default function RecipeDetail() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
-                Los costos se calculan según los precios actuales de los ingredientes. 
-                Al actualizar los precios de los ingredientes, el costo de esta receta se actualizará automáticamente.
+                  Los costos se calculan según los precios actuales de los ingredientes.
+                  Al actualizar los precios de los ingredientes, el costo de esta receta se actualizará automáticamente.
                 </p>
               </CardContent>
             </Card>
@@ -193,6 +200,115 @@ export default function RecipeDetail() {
         </div>
       </div>
     </Shell>
+  );
+}
+
+function EditRecipeDialog({
+  id,
+  name,
+  description,
+}: {
+  id: string;
+  name: string;
+  description: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [recipeName, setRecipeName] = useState(name);
+  const [recipeDescription, setRecipeDescription] = useState(description);
+  const { mutate, isPending } = useUpdateRecipe();
+  const { toast } = useToast();
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setRecipeName(name);
+      setRecipeDescription(description);
+    }
+    setOpen(nextOpen);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const cleanName = recipeName.trim();
+    const cleanDescription = recipeDescription.trim();
+
+    if (!cleanName) {
+      toast({
+        title: "Error",
+        description: "El nombre de la receta es obligatorio",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    mutate(
+      {
+        id,
+        name: cleanName,
+        description: cleanDescription,
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Actualizado",
+            description: "La receta se actualizó correctamente",
+          });
+          setOpen(false);
+        },
+        onError: (err: any) => {
+          toast({
+            title: "Error",
+            description: err?.message ?? "No se pudo actualizar la receta",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="icon" type="button">
+          <Pencil className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Editar receta</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+          <div className="space-y-2">
+            <Label htmlFor="recipe-name">Nombre</Label>
+            <Input
+              id="recipe-name"
+              value={recipeName}
+              onChange={(e) => setRecipeName(e.target.value)}
+              placeholder="Nombre de la receta"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="recipe-description">Descripción</Label>
+            <Textarea
+              id="recipe-description"
+              value={recipeDescription}
+              onChange={(e) => setRecipeDescription(e.target.value)}
+              placeholder="Descripción de la receta"
+              rows={4}
+            />
+          </div>
+
+          <DialogFooter className="pt-4">
+            <Button type="submit" disabled={isPending} className="w-full">
+              {isPending ? "Guardando..." : "Guardar cambios"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

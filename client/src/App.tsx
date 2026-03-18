@@ -13,12 +13,11 @@ import RecipeDetail from "@/pages/RecipeDetail";
 function Router() {
   return (
     <Switch>
-      {/* OJO: si tu app está servida bajo /recipes (base), acá NO repetimos /recipes */}
-      <Route path="/" component={Dashboard} />
-      <Route path="/dashboard" component={Dashboard} />
-      <Route path="/ingredients" component={Ingredients} />
-      <Route path="/recipes" component={Recipes} />
-      <Route path="/:id" component={RecipeDetail} />
+      <Route path="/:tenant" component={Dashboard} />
+      <Route path="/:tenant/dashboard" component={Dashboard} />
+      <Route path="/:tenant/ingredients" component={Ingredients} />
+      <Route path="/:tenant/recipes" component={Recipes} />
+      <Route path="/:tenant/recipes/:id" component={RecipeDetail} />
       <Route component={NotFound} />
     </Switch>
   );

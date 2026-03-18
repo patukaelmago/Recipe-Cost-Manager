@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useRecipes, useCreateRecipe } from "@/hooks/use-recipes";
 import { Plus, Search, UtensilsCrossed, ArrowRight } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link } from "wouter";
+import { Link, useRoute } from "wouter";
 import {
   Dialog,
   DialogContent,
@@ -30,7 +30,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Recipes() {
-  const { data: recipes, isLoading } = useRecipes();
+  const [, params] = useRoute("/:tenant/recipes");
+  const tenant = params?.tenant ?? "picaña";
+
+  const { data: recipes, isLoading } = useRecipes(tenant);
   const [search, setSearch] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
@@ -78,17 +81,29 @@ export default function Recipes() {
               No se encontraron recetas. Crea tu primer receta!
             </div>
           ) : (
-            filteredRecipes.map((recipe) => <RecipeCard key={recipe.id} recipe={recipe} />)
+            filteredRecipes.map((recipe) => (
+              <RecipeCard key={recipe.id} recipe={recipe} tenant={tenant} />
+            ))
           )}
         </div>
       </div>
 
-      <CreateRecipeDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
+      <CreateRecipeDialog
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+        tenant={tenant}
+      />
     </Shell>
   );
 }
 
-function RecipeCard({ recipe }: { recipe: { id: string; name: string; description?: string } }) {
+function RecipeCard({
+  recipe,
+  tenant,
+}: {
+  recipe: { id: string; name: string; description?: string };
+  tenant: string;
+}) {
   return (
     <Card className="card-hover group border-border/50 overflow-hidden flex flex-col h-full">
       <CardHeader>
@@ -105,14 +120,17 @@ function RecipeCard({ recipe }: { recipe: { id: string; name: string; descriptio
 
       <CardContent className="flex-1">
         <div className="text-sm text-muted-foreground">
-        Haga clic en los detalles para administrar los ingredientes y ver los costos.
+          Haga clic en los detalles para administrar los ingredientes y ver los costos.
         </div>
       </CardContent>
 
       <CardFooter className="border-t bg-muted/20 p-4">
-        {/* CLAVE: NO /recipes acá. Tu base ya es /recipes */}
-        <Link href={`/${recipe.id}`} className="w-full">
-          <Button variant="ghost" className="w-full justify-between group-hover:text-primary" type="button">
+        <Link href={`/${tenant}/recipes/${recipe.id}`} className="w-full">
+          <Button
+            variant="ghost"
+            className="w-full justify-between group-hover:text-primary"
+            type="button"
+          >
             Ver Detalles
             <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
           </Button>
@@ -143,11 +161,13 @@ function RecipeSkeleton() {
 function CreateRecipeDialog({
   open,
   onOpenChange,
+  tenant,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  tenant: string;
 }) {
-  const { mutate, isPending } = useCreateRecipe();
+  const { mutate, isPending } = useCreateRecipe(tenant);
   const { toast } = useToast();
 
   const form = useForm<InsertRecipe>({

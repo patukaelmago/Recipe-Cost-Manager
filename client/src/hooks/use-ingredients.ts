@@ -16,14 +16,16 @@ import { db } from "@/lib/firebase";
 import { insertIngredientSchema, type InsertIngredient } from "@shared/schema";
 
 export type Ingredient = {
-  id: string; // Firestore doc id
+  id: string;
   name: string;
   unit: string;
   packageSize: number;
   price: number;
 };
 
-const COL = "ingredients" as const;
+const TENANTS_COL = "tenants" as const;
+const INGREDIENTS_COL = "ingredients" as const;
+const DEFAULT_TENANT_ID = "picaña";
 
 function parseIngredient(input: unknown): InsertIngredient {
   return insertIngredientSchema.parse(input);
@@ -39,23 +41,31 @@ function mapIngredient(id: string, data: any): Ingredient {
   };
 }
 
-export function useIngredients() {
+function tenantIngredientsCollection(tenantId: string = DEFAULT_TENANT_ID) {
+  return collection(db, TENANTS_COL, tenantId, INGREDIENTS_COL);
+}
+
+function tenantIngredientDoc(id: string, tenantId: string = DEFAULT_TENANT_ID) {
+  return doc(db, TENANTS_COL, tenantId, INGREDIENTS_COL, id);
+}
+
+export function useIngredients(tenantId: string = DEFAULT_TENANT_ID) {
   return useQuery({
-    queryKey: ["ingredients"],
+    queryKey: ["ingredients", tenantId],
     queryFn: async (): Promise<Ingredient[]> => {
-      const q = query(collection(db, COL), orderBy("name"));
+      const q = query(tenantIngredientsCollection(tenantId), orderBy("name"));
       const snap = await getDocs(q);
       return snap.docs.map((d) => mapIngredient(d.id, d.data()));
     },
   });
 }
 
-export function useIngredient(id: string) {
+export function useIngredient(id: string, tenantId: string = DEFAULT_TENANT_ID) {
   return useQuery({
-    queryKey: ["ingredients", id],
+    queryKey: ["ingredients", tenantId, id],
     enabled: !!id,
     queryFn: async (): Promise<Ingredient | null> => {
-      const ref = doc(db, COL, id);
+      const ref = tenantIngredientDoc(id, tenantId);
       const snap = await getDoc(ref);
       if (!snap.exists()) return null;
       return mapIngredient(snap.id, snap.data());
@@ -63,14 +73,14 @@ export function useIngredient(id: string) {
   });
 }
 
-export function useCreateIngredient() {
+export function useCreateIngredient(tenantId: string = DEFAULT_TENANT_ID) {
   const qc = useQueryClient();
 
   return useMutation({
     mutationFn: async (raw: InsertIngredient) => {
       const data = parseIngredient(raw);
 
-      const ref = await addDoc(collection(db, COL), {
+      const ref = await addDoc(tenantIngredientsCollection(tenantId), {
         ...data,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -79,12 +89,12 @@ export function useCreateIngredient() {
       return ref.id;
     },
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["ingredients"] });
+      await qc.invalidateQueries({ queryKey: ["ingredients", tenantId] });
     },
   });
 }
 
-export function useUpdateIngredient() {
+export function useUpdateIngredient(tenantId: string = DEFAULT_TENANT_ID) {
   const qc = useQueryClient();
 
   return useMutation({
@@ -92,7 +102,7 @@ export function useUpdateIngredient() {
       const { id, ...rest } = payload;
       const data = parseIngredient(rest);
 
-      const ref = doc(db, COL, id);
+      const ref = tenantIngredientDoc(id, tenantId);
       await updateDoc(ref, {
         ...data,
         updatedAt: serverTimestamp(),
@@ -101,24 +111,24 @@ export function useUpdateIngredient() {
       return id;
     },
     onSuccess: async (_id, vars) => {
-      await qc.invalidateQueries({ queryKey: ["ingredients"] });
-      await qc.invalidateQueries({ queryKey: ["ingredients", vars.id] });
+      await qc.invalidateQueries({ queryKey: ["ingredients", tenantId] });
+      await qc.invalidateQueries({ queryKey: ["ingredients", tenantId, vars.id] });
     },
   });
 }
 
-export function useDeleteIngredient() {
+export function useDeleteIngredient(tenantId: string = DEFAULT_TENANT_ID) {
   const qc = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const ref = doc(db, COL, id);
+      const ref = tenantIngredientDoc(id, tenantId);
       await deleteDoc(ref);
       return id;
     },
     onSuccess: async (id) => {
-      await qc.invalidateQueries({ queryKey: ["ingredients"] });
-      await qc.invalidateQueries({ queryKey: ["ingredients", id] });
+      await qc.invalidateQueries({ queryKey: ["ingredients", tenantId] });
+      await qc.invalidateQueries({ queryKey: ["ingredients", tenantId, id] });
     },
   });
 }

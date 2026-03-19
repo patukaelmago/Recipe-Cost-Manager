@@ -192,13 +192,13 @@ function CreateRecipeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Create New Recipe</DialogTitle>
-          <DialogDescription>Start by giving your recipe a name and description.</DialogDescription>
+          <DialogTitle>Crea una nueva Receta</DialogTitle>
+          <DialogDescription>Empieza por darle un nombre y una descripción a tu receta.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Recipe Name</Label>
+            <Label htmlFor="name">Nombre de la Receta</Label>
             <Input id="name" {...form.register("name")} placeholder="e.g. Chocolate Cake" />
             {form.formState.errors.name && (
               <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
@@ -206,7 +206,7 @@ function CreateRecipeDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">Descripción</Label>
             <Textarea
               id="description"
               {...form.register("description")}

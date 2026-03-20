@@ -355,7 +355,11 @@ function AddIngredientDialog({
           setSelectedIngredientId("");
         },
         onError: (err: any) => {
-          toast({ title: "Error", description: err?.message ?? "Error", variant: "destructive" });
+          toast({
+            title: "Error",
+            description: err?.message ?? "Error",
+            variant: "destructive",
+          });
         },
       }
     );
@@ -364,13 +368,7 @@ function AddIngredientDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button
-          size="sm"
-          className="bg-primary/10 text-primary hover:bg-primary/20 shadow-none"
-          type="button"
-        >
-          <Plus className="mr-2 h-4 w-4" /> Agregar Item
-        </Button>
+        <Button className="btn-primary">Agregar Item</Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-[425px]">
@@ -379,11 +377,25 @@ function AddIngredientDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+          {/* SELECT */}
           <div className="space-y-2">
             <Label>Elegir Ingrediente</Label>
-            <Select value={selectedIngredientId} onValueChange={setSelectedIngredientId}>
+            <Select
+              value={selectedIngredientId}
+              onValueChange={(value) => {
+                setSelectedIngredientId(value);
+
+                setTimeout(() => {
+                  const input = document.getElementById("qty-input");
+                  if (input instanceof HTMLInputElement) {
+                    input.focus();
+                    input.select();
+                  }
+                }, 0);
+              }}
+            >
               <SelectTrigger>
-                <SelectValue placeholder="Search ingredients..." />
+                <SelectValue placeholder="Seleccionar ingrediente" />
               </SelectTrigger>
               <SelectContent>
                 {ingredients?.map((ing) => (
@@ -395,11 +407,15 @@ function AddIngredientDialog({
             </Select>
           </div>
 
+          {/* INPUT CANTIDAD */}
           <div className="space-y-2">
-            <Label>Cantidad {selected ? `(${selected.unit})` : ""}</Label>
+            <Label>
+              Cantidad {selected ? `(${selected.unit})` : ""}
+            </Label>
             <Input
+              id="qty-input"
               type="number"
-              step="0.0001"
+              step="any"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               placeholder="0.00"
@@ -409,10 +425,10 @@ function AddIngredientDialog({
           <DialogFooter className="pt-4">
             <Button
               type="submit"
-              disabled={isPending || !selectedIngredientId || !quantity}
+              disabled={isPending}
               className="btn-primary w-full"
             >
-              {isPending ? "Adding..." : "Add to Recipe"}
+              {isPending ? "Agregando..." : "Add to Recipe"}
             </Button>
           </DialogFooter>
         </form>

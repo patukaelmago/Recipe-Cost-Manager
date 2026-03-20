@@ -399,7 +399,7 @@ function AddIngredientDialog({
             <Label>Cantidad {selected ? `(${selected.unit})` : ""}</Label>
             <Input
               type="number"
-              step="0.01"
+              step="0.0001"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               placeholder="0.00"

@@ -60,9 +60,11 @@ export default function RecipeDetail() {
       return total + pricePerUnit * (item.quantity ?? 0);
     }, 0);
   }, [recipe?.ingredients]);
-
+  
+  const pricingPercentage = 30;
+  const suggestedPrice = ingredientsCost * (1 + pricingPercentage / 100);
   if (isLoading) return <RecipeDetailSkeleton />;
-  if (!recipe) return <div className="p-8 text-center text-primary">Recipe not found</div>;
+  if (!recipe) return <div className="p-8 text-center text-primary">Receta no encontrada</div>;
 
   return (
     <Shell>
@@ -182,8 +184,8 @@ export default function RecipeDetail() {
                     <span className="font-medium">{(recipe.ingredients ?? []).length}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Precio sugerido (30%)</span>
-                    <span className="font-medium">${(ingredientsCost / 0.3).toFixed(2)}</span>
+                    <span className="text-muted-foreground">Precio sugerido ({pricingPercentage}%)</span>
+                    <span className="font-medium">${(ingredientsCost * 1.3).toFixed(2)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -504,12 +506,12 @@ function DeleteRecipeDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Borrar Receta?</AlertDialogTitle>
           <AlertDialogDescription>
-            Estàs seguro de borrar la Receta &quot;{name}&quot;? This action cannot be undone.
+            Estàs seguro de borrar la Receta &quot;{name}&quot;? Esta acción no se puede deshacer
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction
             onClick={onDelete}
             disabled={isPending}

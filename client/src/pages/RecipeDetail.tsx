@@ -61,7 +61,7 @@ export default function RecipeDetail() {
     }, 0);
   }, [recipe?.ingredients]);
   
-  const pricingPercentage = (recipe as any)?.pricingPercentage ?? 30;
+  const pricingPercentage = 50;
   const suggestedPrice = ingredientsCost * (1 + pricingPercentage / 100);
   if (isLoading) return <RecipeDetailSkeleton />;
   if (!recipe) return <div className="p-8 text-center text-primary">Receta no encontrada</div>;

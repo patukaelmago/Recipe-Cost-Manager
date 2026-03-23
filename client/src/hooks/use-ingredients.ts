@@ -90,6 +90,8 @@ export function useCreateIngredient(tenantId: string = DEFAULT_TENANT_ID) {
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["ingredients", tenantId] });
+      await qc.invalidateQueries({ queryKey: ["recipes", tenantId] });
+      await qc.invalidateQueries({ queryKey: ["recipe", tenantId] });
     },
   });
 }
@@ -113,6 +115,8 @@ export function useUpdateIngredient(tenantId: string = DEFAULT_TENANT_ID) {
     onSuccess: async (_id, vars) => {
       await qc.invalidateQueries({ queryKey: ["ingredients", tenantId] });
       await qc.invalidateQueries({ queryKey: ["ingredients", tenantId, vars.id] });
+      await qc.invalidateQueries({ queryKey: ["recipes", tenantId] });
+      await qc.invalidateQueries({ queryKey: ["recipe", tenantId] });
     },
   });
 }
@@ -129,6 +133,8 @@ export function useDeleteIngredient(tenantId: string = DEFAULT_TENANT_ID) {
     onSuccess: async (id) => {
       await qc.invalidateQueries({ queryKey: ["ingredients", tenantId] });
       await qc.invalidateQueries({ queryKey: ["ingredients", tenantId, id] });
+      await qc.invalidateQueries({ queryKey: ["recipes", tenantId] });
+      await qc.invalidateQueries({ queryKey: ["recipe", tenantId] });
     },
   });
 }

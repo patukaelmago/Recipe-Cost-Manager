@@ -35,6 +35,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,6 +53,8 @@ export default function RecipeDetail() {
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [editQuantity, setEditQuantity] = useState("");
   const [isSavingQuantity, setIsSavingQuantity] = useState(false);
+
+  const queryClient = useQueryClient();
 
   const [, params] = useRoute("/:tenant/recipes/:id");
   const tenant = params?.tenant ?? "picania";
@@ -79,10 +82,9 @@ export default function RecipeDetail() {
   const suggestedPrice = ingredientsCost * (1 + pricingPercentage / 100);
 
   const handleSaveQuantity = async () => {
-    if (!editingItem) return;
-
+    if (!editingItem || !recipe) return; // Validar que recipe exista
+  
     const quantityNumber = Number(editQuantity);
-
     if (Number.isNaN(quantityNumber) || quantityNumber <= 0) {
       toast({
         title: "Error",
@@ -91,49 +93,60 @@ export default function RecipeDetail() {
       });
       return;
     }
-
+  
+    // 1. Actualización Optimista (UI instantánea)
+    queryClient.setQueryData(['recipe', recipeId, tenant], (oldData: any) => {
+      if (!oldData) return;
+      const newIngredients = oldData.ingredients.map((item: any) => 
+        item.id === editingItem.id ? { ...item, quantity: quantityNumber } : item
+      );
+      return { ...oldData, ingredients: newIngredients };
+    });
+  
+    setEditOpen(false);
+  
     try {
       setIsSavingQuantity(true);
-
+  
+      // 2. Referencia al documento
       const recipeRef = doc(db, "tenants", tenant, "recipes", recipeId);
-      const recipeSnap = await getDoc(recipeRef);
-
-      if (!recipeSnap.exists()) {
-        throw new Error("La receta no existe");
-      }
-
-      const data = recipeSnap.data();
-      const currentIngredients = Array.isArray(data.ingredients) ? data.ingredients : [];
-
-      const updatedIngredients = currentIngredients.map((item: any) =>
-        item.id === editingItem.id
-          ? { ...item, quantity: quantityNumber }
-          : item
-      );
-
+  
+      // 3. Mapeamos los ingredientes usando 'recipe.ingredients' que ya tenemos en el componente
+      // Esto asegura que comparamos IDs que existen en el estado actual de la app
+      const updatedIngredients = recipe.ingredients.map((item: any) => {
+        if (item.id === editingItem.id) {
+          return {
+            ...item,
+            quantity: quantityNumber,
+          };
+        }
+        return item;
+      });
+  
+      // 4. Guardar en Firebase
       await updateDoc(recipeRef, {
         ingredients: updatedIngredients,
         updatedAt: serverTimestamp(),
       });
-
-      setEditOpen(false);
-      setEditingItem(null);
-      setEditQuantity("");
-
+  
       toast({
         title: "Actualizado",
         description: "La cantidad se actualizó correctamente",
       });
-
-      window.location.reload();
+  
     } catch (err: any) {
+      console.error("Error al guardar:", err);
+      // Revertir cambios si falla (opcional, el invalidateQueries lo hará)
       toast({
         title: "Error",
         description: err?.message ?? "No se pudo actualizar la cantidad",
         variant: "destructive",
       });
     } finally {
+      queryClient.invalidateQueries({ queryKey: ["recipe", recipeId, tenant] });
       setIsSavingQuantity(false);
+      setEditingItem(null);
+      setEditQuantity("");
     }
   };
 
@@ -157,7 +170,12 @@ export default function RecipeDetail() {
             <DialogTitle>Editar cantidad</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 pt-2">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSaveQuantity();
+            }}
+          >
             <div className="space-y-2">
               <Label>Ingrediente</Label>
               <div className="text-sm text-muted-foreground">
@@ -175,21 +193,27 @@ export default function RecipeDetail() {
                 step="any"
                 value={editQuantity}
                 onChange={(e) => setEditQuantity(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSaveQuantity();
+                  }
+                }}
                 placeholder="0.00"
+                autoFocus
               />
             </div>
 
             <DialogFooter className="pt-2">
               <Button
-                type="button"
-                onClick={handleSaveQuantity}
+                type="submit"
                 disabled={isSavingQuantity}
                 className="w-full"
               >
                 {isSavingQuantity ? "Guardando..." : "Guardar cantidad"}
               </Button>
             </DialogFooter>
-          </div>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -257,7 +281,7 @@ export default function RecipeDetail() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      recipe.ingredients.map((item) => {
+                      recipe.ingredients.map((item: any) => {
                         const pricePerUnit =
                           (item.ingredient.price ?? 0) / (item.ingredient.packageSize || 1);
                         const totalCost = pricePerUnit * (item.quantity ?? 0);

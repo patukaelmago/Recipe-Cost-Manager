@@ -82,71 +82,52 @@ export default function RecipeDetail() {
   const suggestedPrice = ingredientsCost * (1 + pricingPercentage / 100);
 
   const handleSaveQuantity = async () => {
-    if (!editingItem || !recipe) return; // Validar que recipe exista
-  
+    if (!editingItem) return;
     const quantityNumber = Number(editQuantity);
-    if (Number.isNaN(quantityNumber) || quantityNumber <= 0) {
-      toast({
-        title: "Error",
-        description: "Ingresá una cantidad válida",
-        variant: "destructive",
-      });
-      return;
-    }
-  
-    // 1. Actualización Optimista (UI instantánea)
-    queryClient.setQueryData(['recipe', recipeId, tenant], (oldData: any) => {
-      if (!oldData) return;
-      const newIngredients = oldData.ingredients.map((item: any) => 
-        item.id === editingItem.id ? { ...item, quantity: quantityNumber } : item
-      );
-      return { ...oldData, ingredients: newIngredients };
-    });
-  
-    setEditOpen(false);
   
     try {
       setIsSavingQuantity(true);
-  
-      // 2. Referencia al documento
       const recipeRef = doc(db, "tenants", tenant, "recipes", recipeId);
+      
+      // LOG 1: Ver qué estamos queriendo editar
+      console.log("ID que buscamos editar:", editingItem.id);
   
-      // 3. Mapeamos los ingredientes usando 'recipe.ingredients' que ya tenemos en el componente
-      // Esto asegura que comparamos IDs que existen en el estado actual de la app
-      const updatedIngredients = recipe.ingredients.map((item: any) => {
+      const recipeSnap = await getDoc(recipeRef);
+      const data = recipeSnap.data();
+  
+      if (!data) throw new Error("No se encontró el documento en Firebase");
+  
+      // LOG 2: Ver qué hay REALMENTE en Firebase
+      console.log("Contenido de ingredients en Firebase:", data.ingredients);
+  
+      const updatedIngredients = data.ingredients.map((item: any) => {
+        // LOG 3: Comparación paso a paso
+        console.log(`Comparando item.id (${item.id}) con editingItem.id (${editingItem.id})`);
+        
         if (item.id === editingItem.id) {
-          return {
-            ...item,
-            quantity: quantityNumber,
-          };
+          console.log("¡MATCH ENCONTRADO! Cambiando cantidad a:", quantityNumber);
+          return { ...item, quantity: quantityNumber };
         }
         return item;
       });
   
-      // 4. Guardar en Firebase
+      // LOG 4: Ver el array final antes de subirlo
+      console.log("Array que se enviará a Firebase:", updatedIngredients);
+  
       await updateDoc(recipeRef, {
         ingredients: updatedIngredients,
         updatedAt: serverTimestamp(),
       });
   
-      toast({
-        title: "Actualizado",
-        description: "La cantidad se actualizó correctamente",
-      });
+      setEditOpen(false);
+      toast({ title: "Actualizado", description: "Guardado en Firebase" });
   
-    } catch (err: any) {
-      console.error("Error al guardar:", err);
-      // Revertir cambios si falla (opcional, el invalidateQueries lo hará)
-      toast({
-        title: "Error",
-        description: err?.message ?? "No se pudo actualizar la cantidad",
-        variant: "destructive",
-      });
+    } catch (err) {
+      console.error("ERROR DETALLADO:", err);
+      toast({ title: "Error", description: "Revisá la consola", variant: "destructive" });
     } finally {
       queryClient.invalidateQueries({ queryKey: ["recipe", recipeId, tenant] });
       setIsSavingQuantity(false);
-      setEditingItem(null);
-      setEditQuantity("");
     }
   };
 

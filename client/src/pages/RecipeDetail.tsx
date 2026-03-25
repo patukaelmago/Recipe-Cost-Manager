@@ -82,52 +82,52 @@ export default function RecipeDetail() {
   const suggestedPrice = ingredientsCost * (1 + pricingPercentage / 100);
 
   const handleSaveQuantity = async () => {
-    if (!editingItem) return;
+    if (!editingItem || !recipe) return;
+  
     const quantityNumber = Number(editQuantity);
+    if (Number.isNaN(quantityNumber) || quantityNumber <= 0) {
+      toast({ title: "Error", description: "Cantidad no válida", variant: "destructive" });
+      return;
+    }
   
     try {
       setIsSavingQuantity(true);
+  
+      // 1. Referencia y preparación
       const recipeRef = doc(db, "tenants", tenant, "recipes", recipeId);
       
-      // LOG 1: Ver qué estamos queriendo editar
-      console.log("ID que buscamos editar:", editingItem.id);
-  
-      const recipeSnap = await getDoc(recipeRef);
-      const data = recipeSnap.data();
-  
-      if (!data) throw new Error("No se encontró el documento en Firebase");
-  
-      // LOG 2: Ver qué hay REALMENTE en Firebase
-      console.log("Contenido de ingredients en Firebase:", data.ingredients);
-  
-      const updatedIngredients = data.ingredients.map((item: any) => {
-        // LOG 3: Comparación paso a paso
-        console.log(`Comparando item.id (${item.id}) con editingItem.id (${editingItem.id})`);
-        
+      // Usamos los ingredientes que ya tenemos en el estado 'recipe'
+      const updatedIngredients = recipe.ingredients.map((item: any) => {
         if (item.id === editingItem.id) {
-          console.log("¡MATCH ENCONTRADO! Cambiando cantidad a:", quantityNumber);
           return { ...item, quantity: quantityNumber };
         }
         return item;
       });
   
-      // LOG 4: Ver el array final antes de subirlo
-      console.log("Array que se enviará a Firebase:", updatedIngredients);
-  
+      // 2. GUARDAR EN FIREBASE (Esperamos a que termine)
       await updateDoc(recipeRef, {
         ingredients: updatedIngredients,
         updatedAt: serverTimestamp(),
       });
   
-      setEditOpen(false);
-      toast({ title: "Actualizado", description: "Guardado en Firebase" });
+      // 3. ACTUALIZAR CACHÉ MANUALMENTE (Esto evita el "parpadeo" de datos viejos)
+      queryClient.setQueryData(['recipe', recipeId, tenant], (oldData: any) => {
+        if (!oldData) return oldData;
+        return { ...oldData, ingredients: updatedIngredients };
+      });
   
-    } catch (err) {
-      console.error("ERROR DETALLADO:", err);
-      toast({ title: "Error", description: "Revisá la consola", variant: "destructive" });
+      toast({ title: "Actualizado", description: "Guardado correctamente" });
+      setEditOpen(false);
+  
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: "Error", description: "No se pudo guardar", variant: "destructive" });
     } finally {
-      queryClient.invalidateQueries({ queryKey: ["recipe", recipeId, tenant] });
       setIsSavingQuantity(false);
+      // 4. INVALIDAR después de un pequeño delay para asegurar que Firebase se actualizó
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["recipe", recipeId, tenant] });
+      }, 500);
     }
   };
 

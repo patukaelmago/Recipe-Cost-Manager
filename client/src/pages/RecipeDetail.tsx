@@ -1,4 +1,4 @@
-import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Shell } from "@/components/layout/Shell";
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,9 @@ export default function RecipeDetail() {
   const [editQuantity, setEditQuantity] = useState("");
   const [isSavingQuantity, setIsSavingQuantity] = useState(false);
 
+  const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
+  const [pricingInput, setPricingInput] = useState("");
+
   const queryClient = useQueryClient();
 
   const [, params] = useRoute("/:tenant/recipes/:id");
@@ -65,25 +68,21 @@ export default function RecipeDetail() {
   const recipeId = params?.id ?? "";
 
   const { data: recipe, isLoading } = useRecipe(recipeId, tenant);
-  const [, setLocation] = useLocation();
-  const { toast } = useToast();
-
   const { data: tenantSettings } = useTenantSettings(tenant);
   const { mutate: updateTenantSettings, isPending: isUpdatingTenantSettings } =
     useUpdateTenantSettings(tenant);
 
-  const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
-  const [pricingInput, setPricingInput] = useState("");
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
 
   const ingredientsCost = useMemo(() => {
     if (!recipe) return 0;
 
-    const items = recipe?.ingredients ?? [];
+    const items = recipe.ingredients ?? [];
 
     return items.reduce((total, item) => {
       const pricePerUnit =
-        (item.ingredient.price ?? 0) /
-        (item.ingredient.packageSize || 1);
+        (item.ingredient.price ?? 0) / (item.ingredient.packageSize || 1);
 
       return total + pricePerUnit * (item.quantity ?? 0);
     }, 0);
@@ -164,6 +163,39 @@ export default function RecipeDetail() {
     }
   };
 
+  const handleSavePricingPercentage = () => {
+    const value = Number(pricingInput);
+
+    if (Number.isNaN(value) || value < 0) {
+      toast({
+        title: "Error",
+        description: "Porcentaje no válido",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateTenantSettings(
+      { pricingPercentage: value },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Actualizado",
+            description: "Porcentaje guardado correctamente",
+          });
+          setPricingDialogOpen(false);
+        },
+        onError: () => {
+          toast({
+            title: "Error",
+            description: "No se pudo guardar el porcentaje",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
   if (isLoading) return <RecipeDetailSkeleton />;
   if (!recipe) return <div className="p-8 text-center text-primary">Receta no encontrada</div>;
 
@@ -219,12 +251,55 @@ export default function RecipeDetail() {
             </div>
 
             <DialogFooter className="pt-2">
+              <Button type="submit" disabled={isSavingQuantity} className="w-full">
+                {isSavingQuantity ? "Guardando..." : "Guardar cantidad"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={pricingDialogOpen}
+        onOpenChange={(open) => {
+          setPricingDialogOpen(open);
+          if (open) {
+            setPricingInput(String(pricingPercentage));
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Editar porcentaje sugerido</DialogTitle>
+          </DialogHeader>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSavePricingPercentage();
+            }}
+            className="space-y-4 pt-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="pricing-percentage">Porcentaje</Label>
+              <Input
+                id="pricing-percentage"
+                type="number"
+                step="any"
+                value={pricingInput}
+                onChange={(e) => setPricingInput(e.target.value)}
+                placeholder="50"
+                autoFocus
+              />
+            </div>
+
+            <DialogFooter>
               <Button
                 type="submit"
-                disabled={isSavingQuantity}
                 className="w-full"
+                disabled={isUpdatingTenantSettings}
               >
-                {isSavingQuantity ? "Guardando..." : "Guardar cantidad"}
+                {isUpdatingTenantSettings ? "Guardando..." : "Guardar porcentaje"}
               </Button>
             </DialogFooter>
           </form>
@@ -361,22 +436,31 @@ export default function RecipeDetail() {
                       <span className="text-muted-foreground">Recuento de ingredientes</span>
                       <span className="font-medium">{(recipe.ingredients ?? []).length}</span>
                     </div>
+
                     <Button
-                      type="button"
-                      variant="ghost"
-                      className="w-full h-auto px-0 py-0 justify-between text-sm font-normal hover:bg-transparent"
-                      onClick={() => {
-                        setPricingInput(String(pricingPercentage));
-                        setPricingDialogOpen(true);
-                      }}
-                    >
-                      <span className="text-muted-foreground">
-                        Precio sugerido ({pricingPercentage}%)
-                      </span>
-                      <span className="font-medium">
-                        ${suggestedPrice.toFixed(2)}
-                      </span>
-                    </Button>
+  type="button"
+  variant="ghost"
+  className="group w-full h-auto px-0 py-2 justify-between items-start font-normal hover:bg-primary/5"
+  onClick={() => {
+    setPricingInput(String(pricingPercentage));
+    setPricingDialogOpen(true);
+  }}
+>
+  <div className="flex flex-col items-start text-left">
+    <span className="text-muted-foreground text-sm">
+      Precio sugerido
+    </span>
+
+    <span className="text-xs flex items-center gap-1 text-primary font-medium">
+      Margen  {pricingPercentage}%
+      <Pencil className="h-3 w-3 text-primary transition-all group-hover:scale-110 group-hover:opacity-100 opacity-80" />
+    </span>
+  </div>
+
+  <span className="font-semibold text-sm text-primary">
+    ${suggestedPrice.toFixed(2)}
+  </span>
+</Button>
                   </div>
                 </CardContent>
               </Card>

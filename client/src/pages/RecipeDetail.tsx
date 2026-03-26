@@ -89,7 +89,7 @@ export default function RecipeDetail() {
     }, 0);
   }, [recipe]);
 
-  const pricingPercentage = 50;
+  const pricingPercentage = tenantSettings?.pricingPercentage ?? 50;
   const suggestedPrice = ingredientsCost * (1 + pricingPercentage / 100);
 
   const handleSaveQuantity = async () => {
@@ -361,8 +361,10 @@ export default function RecipeDetail() {
                       <span className="text-muted-foreground">Recuento de ingredientes</span>
                       <span className="font-medium">{(recipe.ingredients ?? []).length}</span>
                     </div>
-                    <div
-                      className="flex justify-between text-sm cursor-pointer"
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full h-auto px-0 py-0 justify-between text-sm font-normal hover:bg-transparent"
                       onClick={() => {
                         setPricingInput(String(pricingPercentage));
                         setPricingDialogOpen(true);
@@ -374,7 +376,7 @@ export default function RecipeDetail() {
                       <span className="font-medium">
                         ${suggestedPrice.toFixed(2)}
                       </span>
-                    </div>
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
+  useTenantSettings,
+  useUpdateTenantSettings,
+} from "@/hooks/use-tenant-settings";
+import {
   useRecipe,
   useAddRecipeIngredient,
   useRemoveRecipeIngredient,
@@ -64,6 +68,13 @@ export default function RecipeDetail() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
+  const { data: tenantSettings } = useTenantSettings(tenant);
+  const { mutate: updateTenantSettings, isPending: isUpdatingTenantSettings } =
+    useUpdateTenantSettings(tenant);
+
+  const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
+  const [pricingInput, setPricingInput] = useState("");
+
   const ingredientsCost = useMemo(() => {
     if (!recipe) return 0;
 
@@ -83,51 +94,73 @@ export default function RecipeDetail() {
 
   const handleSaveQuantity = async () => {
     if (!editingItem || !recipe) return;
-  
+
     const quantityNumber = Number(editQuantity);
+
     if (Number.isNaN(quantityNumber) || quantityNumber <= 0) {
-      toast({ title: "Error", description: "Cantidad no válida", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Cantidad no válida",
+        variant: "destructive",
+      });
       return;
     }
-  
+
     try {
       setIsSavingQuantity(true);
-  
-      // 1. Referencia y preparación
-      const recipeRef = doc(db, "tenants", tenant, "recipes", recipeId);
-      
-      // Usamos los ingredientes que ya tenemos en el estado 'recipe'
-      const updatedIngredients = recipe.ingredients.map((item: any) => {
-        if (item.id === editingItem.id) {
-          return { ...item, quantity: quantityNumber };
-        }
-        return item;
-      });
-  
-      // 2. GUARDAR EN FIREBASE (Esperamos a que termine)
-      await updateDoc(recipeRef, {
-        ingredients: updatedIngredients,
+
+      const itemRef = doc(
+        db,
+        "tenants",
+        tenant,
+        "recipes",
+        recipeId,
+        "ingredients",
+        editingItem.id
+      );
+
+      await updateDoc(itemRef, {
+        quantity: quantityNumber,
         updatedAt: serverTimestamp(),
       });
-  
-      // 3. ACTUALIZAR CACHÉ MANUALMENTE (Esto evita el "parpadeo" de datos viejos)
-      queryClient.setQueryData(['recipe', recipeId, tenant], (oldData: any) => {
-        if (!oldData) return oldData;
-        return { ...oldData, ingredients: updatedIngredients };
+
+      queryClient.setQueryData(
+        ["recipe", tenant, recipeId],
+        (oldData: any) => {
+          if (!oldData) return oldData;
+
+          return {
+            ...oldData,
+            ingredients: oldData.ingredients.map((item: any) =>
+              item.id === editingItem.id
+                ? { ...item, quantity: quantityNumber }
+                : item
+            ),
+          };
+        }
+      );
+
+      toast({
+        title: "Actualizado",
+        description: "Guardado correctamente",
       });
-  
-      toast({ title: "Actualizado", description: "Guardado correctamente" });
+
       setEditOpen(false);
-  
+      setEditingItem(null);
+      setEditQuantity("");
+
+      await queryClient.invalidateQueries({
+        queryKey: ["recipe", tenant, recipeId],
+      });
     } catch (err: any) {
       console.error(err);
-      toast({ title: "Error", description: "No se pudo guardar", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "No se pudo guardar",
+        variant: "destructive",
+      });
     } finally {
       setIsSavingQuantity(false);
-      // 4. INVALIDAR después de un pequeño delay para asegurar que Firebase se actualizó
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ["recipe", recipeId, tenant] });
-      }, 500);
     }
   };
 
@@ -328,8 +361,16 @@ export default function RecipeDetail() {
                       <span className="text-muted-foreground">Recuento de ingredientes</span>
                       <span className="font-medium">{(recipe.ingredients ?? []).length}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Precio sugerido ({pricingPercentage}%)</span>
+                    <div
+                      className="flex justify-between text-sm cursor-pointer"
+                      onClick={() => {
+                        setPricingInput(String(pricingPercentage));
+                        setPricingDialogOpen(true);
+                      }}
+                    >
+                      <span className="text-muted-foreground">
+                        Precio sugerido ({pricingPercentage}%)
+                      </span>
                       <span className="font-medium">
                         ${suggestedPrice.toFixed(2)}
                       </span>

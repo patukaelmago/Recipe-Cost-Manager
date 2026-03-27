@@ -112,7 +112,7 @@ export default function Dashboard() {
             description="Total de recetas creadas"
           />
           <StatCard
-            title="Average Cost"
+            title="Costo Promedio"
             value={`$${stats.avgCost.toFixed(2)}`}
             icon={DollarSign}
             loading={isLoadingRecipes}

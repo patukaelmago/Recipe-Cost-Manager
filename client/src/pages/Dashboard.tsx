@@ -4,6 +4,10 @@ import { useIngredients } from "@/hooks/use-ingredients";
 import { useRecipes } from "@/hooks/use-recipes";
 import { ChefHat, TrendingUp, UtensilsCrossed, DollarSign } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useRoute } from "wouter";
+import { useState, useEffect, useMemo } from "react";
 import {
   BarChart,
   Bar,
@@ -15,14 +19,70 @@ import {
 } from "recharts";
 
 export default function Dashboard() {
+  const [, params] = useRoute("/:tenant/dashboard");
+  const tenant = params?.tenant ?? "picania";
+
   const { data: ingredients, isLoading: isLoadingIngredients } = useIngredients();
   const { data: recipes, isLoading: isLoadingRecipes } = useRecipes();
+  const [tenantMargin, setTenantMargin] = useState(50);
 
-  // Basic stats
+  // Cargar la configuración del tenant (margen por defecto)
+  useEffect(() => {
+    const fetchTenantConfig = async () => {
+      try {
+        const tenantRef = doc(db, "tenants", tenant);
+        const snap = await getDoc(tenantRef);
+        if (snap.exists() && snap.data().pricingPercentage !== undefined) {
+          setTenantMargin(snap.data().pricingPercentage);
+        }
+      } catch (err) {
+        console.error("Error al cargar config del tenant:", err);
+      }
+    };
+    fetchTenantConfig();
+  }, [tenant]);
+
+  // Lógica para calcular estadísticas dinámicas
+  const stats = useMemo(() => {
+    if (!recipes || recipes.length === 0) return { avgCost: 0, avgMargin: 0, activeCount: 0 };
+
+    // 1. Calculamos el costo real de cada receta
+    // Usamos : any para evitar el error de property 'pricingPercentage' does not exist
+    const processedRecipes = (recipes as any[]).map(recipe => {
+      const cost = (recipe.ingredients ?? []).reduce((total: number, item: any) => {
+        const pricePerUnit = (item.ingredient.price ?? 0) / (item.ingredient.packageSize || 1);
+        return total + (pricePerUnit * (item.quantity ?? 0));
+      }, 0);
+      
+      return { 
+        ...recipe, 
+        realCost: cost 
+      };
+    });
+
+    // 2. Filtramos solo las que tienen costo > 0
+    const recipesWithCost = processedRecipes.filter(r => r.realCost > 0);
+    
+    if (recipesWithCost.length === 0) return { avgCost: 0, avgMargin: 0, activeCount: 0 };
+
+    const totalActive = recipesWithCost.length;
+    const sumCosts = recipesWithCost.reduce((acc, r) => acc + r.realCost, 0);
+    
+    // Sumamos los márgenes. Si la receta no tiene uno específico, usa el del tenant.
+    const sumMargins = recipesWithCost.reduce((acc, r) => 
+      acc + (r.pricingPercentage ?? tenantMargin), 0
+    );
+
+    return {
+      avgCost: sumCosts / totalActive,
+      avgMargin: sumMargins / totalActive,
+      activeCount: totalActive
+    };
+  }, [recipes, tenantMargin]);
+
   const totalIngredients = ingredients?.length || 0;
   const totalRecipes = recipes?.length || 0;
 
-  // Simple chart data - just counting items for now as a placeholder for more complex cost analytics
   const chartData = [
     { name: "Ingredientes", total: totalIngredients },
     { name: "Recetas", total: totalRecipes },
@@ -49,21 +109,21 @@ export default function Dashboard() {
             value={totalRecipes}
             icon={UtensilsCrossed}
             loading={isLoadingRecipes}
-            description="Cantidad de ingredientes utilizados"
+            description="Total de recetas creadas"
           />
           <StatCard
             title="Average Cost"
-            value="$12.50"
+            value={`$${stats.avgCost.toFixed(2)}`}
             icon={DollarSign}
-            loading={false}
-            description="Per recipe average"
+            loading={isLoadingRecipes}
+            description={`Basado en ${stats.activeCount} recetas costeadas`}
           />
           <StatCard
-            title="Monthly Trend"
-            value="+12%"
+            title="Margen Promedio"
+            value={`${stats.avgMargin.toFixed(0)}%`}
             icon={TrendingUp}
-            loading={false}
-            description="Cost variation vs last month"
+            loading={isLoadingRecipes}
+            description="Margen actual del menú"
           />
         </div>
 
@@ -89,7 +149,6 @@ export default function Dashboard() {
                       fontSize={12}
                       tickLine={false}
                       axisLine={false}
-                      tickFormatter={(value) => `${value}`}
                     />
                     <Tooltip 
                       cursor={{ fill: 'transparent' }}
@@ -106,6 +165,7 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
+
           <Card className="col-span-3 shadow-sm border-border/50">
             <CardHeader>
               <CardTitle className="font-display text-xl">Recetas recientes</CardTitle>
@@ -122,10 +182,10 @@ export default function Dashboard() {
                       </div>
                     </div>
                   ))
-                ) : recipes?.length === 0 ? (
+                ) : (recipes as any[])?.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">Sin recetas.</p>
                 ) : (
-                  recipes?.slice(0, 5).map((recipe) => (
+                  (recipes as any[])?.slice(0, 5).map((recipe) => (
                     <div key={recipe.id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-secondary/50 transition-colors">
                       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                         <UtensilsCrossed className="h-5 w-5" />
@@ -133,7 +193,7 @@ export default function Dashboard() {
                       <div className="grid gap-1">
                         <p className="text-sm font-medium leading-none">{recipe.name}</p>
                         <p className="text-xs text-muted-foreground truncate max-w-[200px]">
-                          {recipe.description || "No description"}
+                          {recipe.description || "Sin descripción"}
                         </p>
                       </div>
                     </div>

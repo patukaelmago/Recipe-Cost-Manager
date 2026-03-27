@@ -42,14 +42,14 @@ export default function Dashboard() {
             value={totalIngredients}
             icon={ChefHat}
             loading={isLoadingIngredients}
-            description="Active items in stock"
+            description="Artículos activos en stock"
           />
           <StatCard
             title="Recetas"
             value={totalRecipes}
             icon={UtensilsCrossed}
             loading={isLoadingRecipes}
-            description="Costed menu items"
+            description="Cantidad de ingredientes utilizados"
           />
           <StatCard
             title="Average Cost"

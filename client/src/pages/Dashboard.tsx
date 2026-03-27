@@ -22,8 +22,9 @@ export default function Dashboard() {
   const [, params] = useRoute("/:tenant/dashboard");
   const tenant = params?.tenant ?? "picania";
 
-  const { data: ingredients, isLoading: isLoadingIngredients } = useIngredients();
-  const { data: recipes, isLoading: isLoadingRecipes } = useRecipes();
+  // IMPORTANTE: Pasamos el tenant a los hooks para que filtren por local
+  const { data: ingredients, isLoading: isLoadingIngredients } = useIngredients(tenant);
+  const { data: recipes, isLoading: isLoadingRecipes } = useRecipes(tenant);
   const [tenantMargin, setTenantMargin] = useState(50);
 
   // Cargar la configuración del tenant (margen por defecto)
@@ -33,7 +34,7 @@ export default function Dashboard() {
         const tenantRef = doc(db, "tenants", tenant);
         const snap = await getDoc(tenantRef);
         if (snap.exists() && snap.data().pricingPercentage !== undefined) {
-          setTenantMargin(snap.data().pricingPercentage);
+          setTenantMargin(Number(snap.data().pricingPercentage));
         }
       } catch (err) {
         console.error("Error al cargar config del tenant:", err);
@@ -44,33 +45,37 @@ export default function Dashboard() {
 
   // Lógica para calcular estadísticas dinámicas
   const stats = useMemo(() => {
-    if (!recipes || recipes.length === 0) return { avgCost: 0, avgMargin: 0, activeCount: 0 };
+    if (!recipes || !ingredients || recipes.length === 0) {
+      return { avgCost: 0, avgMargin: 0, activeCount: 0 };
+    }
 
-    // 1. Calculamos el costo real de cada receta
-    // Usamos : any para evitar el error de property 'pricingPercentage' does not exist
-    const processedRecipes = (recipes as any[]).map(recipe => {
-      const cost = (recipe.ingredients ?? []).reduce((total: number, item: any) => {
-        const pricePerUnit = (item.ingredient.price ?? 0) / (item.ingredient.packageSize || 1);
-        return total + (pricePerUnit * (item.quantity ?? 0));
+    const recipesWithCost = (recipes as any[]).map(recipe => {
+      const items = recipe.ingredients ?? [];
+      const cost = items.reduce((total: number, item: any) => {
+        // Buscamos el ingrediente en la lista filtrada por tenant para asegurar el precio
+        const ingData = ingredients.find(i => i.id === (item.ingredientId || item.ingredient?.id));
+        
+        if (!ingData) return total;
+
+        const price = Number(ingData.price) || 0;
+        const size = Number(ingData.packageSize) || 1;
+        const quantity = Number(item.quantity) || 0;
+
+        return total + ((price / size) * quantity);
       }, 0);
       
-      return { 
-        ...recipe, 
-        realCost: cost 
-      };
-    });
+      return { ...recipe, realCost: cost };
+    }).filter(r => r.realCost > 0);
 
-    // 2. Filtramos solo las que tienen costo > 0
-    const recipesWithCost = processedRecipes.filter(r => r.realCost > 0);
-    
-    if (recipesWithCost.length === 0) return { avgCost: 0, avgMargin: 0, activeCount: 0 };
+    // FIX: Ahora el chequeo de longitud se hace DESPUÉS de definir recipesWithCost
+    if (recipesWithCost.length === 0) {
+      return { avgCost: 0, avgMargin: 0, activeCount: 0 };
+    }
 
     const totalActive = recipesWithCost.length;
     const sumCosts = recipesWithCost.reduce((acc, r) => acc + r.realCost, 0);
-    
-    // Sumamos los márgenes. Si la receta no tiene uno específico, usa el del tenant.
     const sumMargins = recipesWithCost.reduce((acc, r) => 
-      acc + (r.pricingPercentage ?? tenantMargin), 0
+      acc + (Number(r.pricingPercentage) || tenantMargin), 0
     );
 
     return {
@@ -78,7 +83,7 @@ export default function Dashboard() {
       avgMargin: sumMargins / totalActive,
       activeCount: totalActive
     };
-  }, [recipes, tenantMargin]);
+  }, [recipes, ingredients, tenantMargin]);
 
   const totalIngredients = ingredients?.length || 0;
   const totalRecipes = recipes?.length || 0;
@@ -109,7 +114,7 @@ export default function Dashboard() {
             value={totalRecipes}
             icon={UtensilsCrossed}
             loading={isLoadingRecipes}
-            description="Total de recetas creadas"
+            description="Cantidad de ingredientes utilizados"
           />
           <StatCard
             title="Costo Promedio"
@@ -149,6 +154,7 @@ export default function Dashboard() {
                       fontSize={12}
                       tickLine={false}
                       axisLine={false}
+                      tickFormatter={(value) => `${value}`}
                     />
                     <Tooltip 
                       cursor={{ fill: 'transparent' }}
@@ -165,7 +171,6 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-
           <Card className="col-span-3 shadow-sm border-border/50">
             <CardHeader>
               <CardTitle className="font-display text-xl">Recetas recientes</CardTitle>

@@ -38,14 +38,14 @@ export default function Dashboard() {
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            title="Total Ingredients"
+            title="Ingredientes"
             value={totalIngredients}
             icon={ChefHat}
             loading={isLoadingIngredients}
             description="Active items in stock"
           />
           <StatCard
-            title="Total Recipes"
+            title="Recetas"
             value={totalRecipes}
             icon={UtensilsCrossed}
             loading={isLoadingRecipes}
@@ -123,7 +123,7 @@ export default function Dashboard() {
                     </div>
                   ))
                 ) : recipes?.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">No recipes yet.</p>
+                  <p className="text-sm text-muted-foreground text-center py-8">Sin recetas.</p>
                 ) : (
                   recipes?.slice(0, 5).map((recipe) => (
                     <div key={recipe.id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-secondary/50 transition-colors">

@@ -52,21 +52,24 @@ export default function Dashboard() {
     const recipesWithCost = (recipes as any[]).map(recipe => {
       const items = recipe.ingredients ?? [];
       const cost = items.reduce((total: number, item: any) => {
-        // Buscamos el ingrediente en la lista filtrada por tenant para asegurar el precio
-        console.log(ingredients, recipe.ingredients)
-        const ingData = ingredients.find(i => i.id === (item.ingredientId || item.ingredient?.id));
+        // Intentamos buscar por varios posibles nombres de campo
+        const targetId = item.ingredientId || item.id || item.ingredient?.id;
+        const ingData = ingredients.find(i => i.id === targetId);
         
-        if (!ingData) return total;
-
+        if (!ingData) {
+          console.warn(`No se encontró el ingrediente ${targetId} para la receta ${recipe.name}`);
+          return total;
+        }
+    
         const price = Number(ingData.price) || 0;
         const size = Number(ingData.packageSize) || 1;
         const quantity = Number(item.quantity) || 0;
-
+    
         return total + ((price / size) * quantity);
       }, 0);
       
       return { ...recipe, realCost: cost };
-    }).filter(r => r.realCost > 0);
+    }); // Quitamos el .filter temporalmente para ver si aparecen aunque sea en $0
 
     // FIX: Ahora el chequeo de longitud se hace DESPUÉS de definir recipesWithCost
     if (recipesWithCost.length === 0) {

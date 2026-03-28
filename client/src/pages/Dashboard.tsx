@@ -52,34 +52,35 @@ export default function Dashboard() {
     const recipesWithCost = (recipes as any[]).map(recipe => {
       const items = recipe.ingredients ?? [];
       const cost = items.reduce((total: number, item: any) => {
-        // Intentamos buscar por varios posibles nombres de campo
-        const targetId = item.ingredientId || item.id || item.ingredient?.id;
-        const ingData = ingredients.find(i => i.id === targetId);
+        // Buscamos el ingrediente en la lista filtrada por tenant para asegurar el precio
+        const ingData = ingredients.find(i => i.id === (item.ingredientId || item.ingredient?.id));
         
-        if (!ingData) {
-          console.warn(`No se encontró el ingrediente ${targetId} para la receta ${recipe.name}`);
-          return total;
-        }
-    
+        if (!ingData) return total;
+
         const price = Number(ingData.price) || 0;
         const size = Number(ingData.packageSize) || 1;
         const quantity = Number(item.quantity) || 0;
-    
+
         return total + ((price / size) * quantity);
       }, 0);
       
       return { ...recipe, realCost: cost };
-    }); // Quitamos el .filter temporalmente para ver si aparecen aunque sea en $0
+    });
 
-    // FIX: Ahora el chequeo de longitud se hace DESPUÉS de definir recipesWithCost
-    if (recipesWithCost.length === 0) {
+    // Filtramos recetas que tengan costo mayor a 0 para el promedio real
+    const activeRecipes = recipesWithCost.filter(r => r.realCost > 0);
+
+    if (activeRecipes.length === 0) {
       return { avgCost: 0, avgMargin: 0, activeCount: 0 };
     }
 
-    const totalActive = recipesWithCost.length;
-    const sumCosts = recipesWithCost.reduce((acc, r) => acc + r.realCost, 0);
-    const sumMargins = recipesWithCost.reduce((acc, r) => 
-      acc + (Number(r.pricingPercentage) || tenantMargin), 0
+    const totalActive = activeRecipes.length;
+    const sumCosts = activeRecipes.reduce((acc, r) => acc + r.realCost, 0);
+
+    // FIX DEFINITIVO: Prioriza el margen individual guardado en cada receta.
+    // Si no existe (undefined o null), usa el del local (tenantMargin).
+    const sumMargins = activeRecipes.reduce((acc, r) => 
+      acc + (r.pricingPercentage !== undefined ? Number(r.pricingPercentage) : tenantMargin), 0
     );
 
     return {
@@ -118,7 +119,7 @@ export default function Dashboard() {
             value={totalRecipes}
             icon={UtensilsCrossed}
             loading={isLoadingRecipes}
-            description="Cantidad de ingredientes utilizados"
+            description="Cantidad de recetas creadas"
           />
           <StatCard
             title="Costo Promedio"
@@ -132,7 +133,7 @@ export default function Dashboard() {
             value={`${stats.avgMargin.toFixed(0)}%`}
             icon={TrendingUp}
             loading={isLoadingRecipes}
-            description="Margen actual del menú"
+            description="Margen promedio actual"
           />
         </div>
 
@@ -158,7 +159,6 @@ export default function Dashboard() {
                       fontSize={12}
                       tickLine={false}
                       axisLine={false}
-                      tickFormatter={(value) => `${value}`}
                     />
                     <Tooltip 
                       cursor={{ fill: 'transparent' }}
@@ -175,6 +175,7 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
+          
           <Card className="col-span-3 shadow-sm border-border/50">
             <CardHeader>
               <CardTitle className="font-display text-xl">Recetas recientes</CardTitle>

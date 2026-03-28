@@ -53,6 +53,7 @@ export default function Dashboard() {
       const items = recipe.ingredients ?? [];
       const cost = items.reduce((total: number, item: any) => {
         // Buscamos el ingrediente en la lista filtrada por tenant para asegurar el precio
+        console.log(ingredients, recipe.ingredients)
         const ingData = ingredients.find(i => i.id === (item.ingredientId || item.ingredient?.id));
         
         if (!ingData) return total;

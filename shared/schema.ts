@@ -1,6 +1,10 @@
 // shared/schema.ts
 import { z } from "zod";
 
+/* =========================
+    INGREDIENTS
+========================= */
+
 export const insertIngredientSchema = z.object({
   name: z.string().min(1),
   unit: z.string().min(1),
@@ -10,15 +14,34 @@ export const insertIngredientSchema = z.object({
 
 export type InsertIngredient = z.infer<typeof insertIngredientSchema>;
 
+export const ingredientSchema = insertIngredientSchema.extend({
+  id: z.string(),
+});
+
+export type Ingredient = z.infer<typeof ingredientSchema>;
+
 /* =========================
-   RECIPES
+    RECIPES
 ========================= */
 
+// Esto arregla el error al CREAR
 export const insertRecipeSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional().default(""),
-  // AGREGADO: Esto permite que la receta guarde su propio margen
   pricingPercentage: z.coerce.number().nonnegative().default(50),
 });
 
 export type InsertRecipe = z.infer<typeof insertRecipeSchema>;
+
+// ESTO ARREGLA EL ERROR DE LA LÍNEA 94 EN RECIPEDETAIL (LECTURA)
+export const recipeSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  pricingPercentage: z.number().optional().default(50), // <--- ESTO ES CLAVE
+  ingredients: z.array(z.any()).optional(),
+  createdAt: z.any().optional(),
+  updatedAt: z.any().optional(),
+});
+
+export type Recipe = z.infer<typeof recipeSchema>;

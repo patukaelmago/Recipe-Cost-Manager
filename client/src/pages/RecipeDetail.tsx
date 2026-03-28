@@ -60,6 +60,7 @@ export default function RecipeDetail() {
 
   const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
   const [pricingInput, setPricingInput] = useState("");
+  const [isUpdatingRecipe, setIsUpdatingRecipe] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -69,8 +70,9 @@ export default function RecipeDetail() {
 
   const { data: recipe, isLoading } = useRecipe(recipeId, tenant);
   const { data: tenantSettings } = useTenantSettings(tenant);
-  const { mutate: updateTenantSettings, isPending: isUpdatingTenantSettings } =
-    useUpdateTenantSettings(tenant);
+  
+  // Eliminamos el mutate global para no usarlo por error en esta pantalla
+  // const { mutate: updateTenantSettings, isPending: isUpdatingTenantSettings } = useUpdateTenantSettings(tenant);
 
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -88,7 +90,8 @@ export default function RecipeDetail() {
     }, 0);
   }, [recipe]);
 
-  const pricingPercentage = tenantSettings?.pricingPercentage ?? 50;
+  // FIX: Ahora priorizamos el margen guardado en la receta
+  const pricingPercentage = (recipe as any)?.pricingPercentage ?? tenantSettings?.pricingPercentage ?? 50;
   const suggestedPrice = ingredientsCost * (1 + pricingPercentage / 100);
 
   const handleSaveQuantity = async () => {
@@ -163,7 +166,8 @@ export default function RecipeDetail() {
     }
   };
 
-  const handleSavePricingPercentage = () => {
+  // FIX: Función corregida para que el guardado sea INDIVIDUAL
+  const handleSavePricingPercentage = async () => {
     const value = Number(pricingInput);
 
     if (Number.isNaN(value) || value < 0) {
@@ -175,25 +179,35 @@ export default function RecipeDetail() {
       return;
     }
 
-    updateTenantSettings(
-      { pricingPercentage: value },
-      {
-        onSuccess: () => {
-          toast({
-            title: "Actualizado",
-            description: "Porcentaje guardado correctamente",
-          });
-          setPricingDialogOpen(false);
-        },
-        onError: () => {
-          toast({
-            title: "Error",
-            description: "No se pudo guardar el porcentaje",
-            variant: "destructive",
-          });
-        },
-      }
-    );
+    try {
+      setIsUpdatingRecipe(true);
+      const recipeRef = doc(db, "tenants", tenant, "recipes", recipeId);
+
+      await updateDoc(recipeRef, {
+        pricingPercentage: value,
+        updatedAt: serverTimestamp(),
+      });
+
+      // Actualizamos el cache local para ver el cambio inmediato
+      queryClient.setQueryData(["recipe", tenant, recipeId], (oldData: any) => ({
+        ...oldData,
+        pricingPercentage: value,
+      }));
+
+      toast({
+        title: "Actualizado",
+        description: "Margen de esta receta guardado correctamente",
+      });
+      setPricingDialogOpen(false);
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "No se pudo guardar el margen individual",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingRecipe(false);
+    }
   };
 
   if (isLoading) return <RecipeDetailSkeleton />;
@@ -270,7 +284,7 @@ export default function RecipeDetail() {
       >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Editar porcentaje sugerido</DialogTitle>
+            <DialogTitle>Editar margen individual</DialogTitle>
           </DialogHeader>
 
           <form
@@ -281,7 +295,7 @@ export default function RecipeDetail() {
             className="space-y-4 pt-4"
           >
             <div className="space-y-2">
-              <Label htmlFor="pricing-percentage">Porcentaje</Label>
+              <Label htmlFor="pricing-percentage">Porcentaje (%)</Label>
               <Input
                 id="pricing-percentage"
                 type="number"
@@ -291,15 +305,16 @@ export default function RecipeDetail() {
                 placeholder="50"
                 autoFocus
               />
+              <p className="text-xs text-muted-foreground">Este cambio solo afectará a esta receta.</p>
             </div>
 
             <DialogFooter>
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isUpdatingTenantSettings}
+                disabled={isUpdatingRecipe}
               >
-                {isUpdatingTenantSettings ? "Guardando..." : "Guardar porcentaje"}
+                {isUpdatingRecipe ? "Guardando..." : "Guardar margen"}
               </Button>
             </DialogFooter>
           </form>
@@ -438,29 +453,29 @@ export default function RecipeDetail() {
                     </div>
 
                     <Button
-  type="button"
-  variant="ghost"
-  className="group w-full h-auto px-0 py-2 justify-between items-start font-normal hover:bg-primary/5"
-  onClick={() => {
-    setPricingInput(String(pricingPercentage));
-    setPricingDialogOpen(true);
-  }}
->
-  <div className="flex flex-col items-start text-left">
-    <span className="text-muted-foreground text-sm">
-      Precio sugerido
-    </span>
+                      type="button"
+                      variant="ghost"
+                      className="group w-full h-auto px-0 py-2 justify-between items-start font-normal hover:bg-primary/5"
+                      onClick={() => {
+                        setPricingInput(String(pricingPercentage));
+                        setPricingDialogOpen(true);
+                      }}
+                    >
+                      <div className="flex flex-col items-start text-left">
+                        <span className="text-muted-foreground text-sm">
+                          Precio sugerido
+                        </span>
 
-    <span className="text-xs flex items-center gap-1 text-primary font-medium">
-      Margen  {pricingPercentage}%
-      <Pencil className="h-3 w-3 text-primary transition-all group-hover:scale-110 group-hover:opacity-100 opacity-80" />
-    </span>
-  </div>
+                        <span className="text-xs flex items-center gap-1 text-primary font-medium">
+                          Margen  {pricingPercentage}%
+                          <Pencil className="h-3 w-3 text-primary transition-all group-hover:scale-110 group-hover:opacity-100 opacity-80" />
+                        </span>
+                      </div>
 
-  <span className="font-semibold text-sm text-primary">
-    ${suggestedPrice.toFixed(2)}
-  </span>
-</Button>
+                      <span className="font-semibold text-sm text-primary">
+                        ${suggestedPrice.toFixed(2)}
+                      </span>
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

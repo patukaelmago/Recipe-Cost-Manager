@@ -15,8 +15,10 @@ export type InsertIngredient = z.infer<typeof insertIngredientSchema>;
 ========================= */
 
 export const insertRecipeSchema = z.object({
-    name: z.string().min(1),
-    description: z.string().optional().default(""),
-  });
-  
-  export type InsertRecipe = z.infer<typeof insertRecipeSchema>;
+  name: z.string().min(1),
+  description: z.string().optional().default(""),
+  // AGREGADO: Esto permite que la receta guarde su propio margen
+  pricingPercentage: z.coerce.number().nonnegative().default(50),
+});
+
+export type InsertRecipe = z.infer<typeof insertRecipeSchema>;

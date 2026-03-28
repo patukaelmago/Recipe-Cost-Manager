@@ -172,13 +172,18 @@ function CreateRecipeDialog({
 
   const form = useForm<InsertRecipe>({
     resolver: zodResolver(insertRecipeSchema),
-    defaultValues: { name: "", description: "" },
+    // Agregamos pricingPercentage por defecto aquí
+    defaultValues: { 
+      name: "", 
+      description: "",
+      pricingPercentage: 50 
+    } as any,
   });
 
   const onSubmit = (data: InsertRecipe) => {
     mutate(data, {
       onSuccess: () => {
-        toast({ title: "Success", description: "Recipe created successfully" });
+        toast({ title: "Éxito", description: "Receta creada correctamente." });
         form.reset();
         onOpenChange(false);
       },
@@ -193,7 +198,7 @@ function CreateRecipeDialog({
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Crea una nueva Receta</DialogTitle>
-          <DialogDescription>Empieza por darle un nombre y una descripción a tu receta.</DialogDescription>
+          <DialogDescription>Empieza por darle un nombre, descripción y margen a tu receta.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
@@ -210,8 +215,19 @@ function CreateRecipeDialog({
             <Textarea
               id="description"
               {...form.register("description")}
-              placeholder="Brief description of the recipe..."
+              placeholder="Breve descripción de la receta..."
               rows={3}
+            />
+          </div>
+
+          {/* Nuevo campo de Margen Individual */}
+          <div className="space-y-2">
+            <Label htmlFor="pricingPercentage">Margen de Ganancia (%)</Label>
+            <Input 
+              id="pricingPercentage" 
+              type="number" 
+              {...form.register("pricingPercentage", { valueAsNumber: true })} 
+              placeholder="50"
             />
           </div>
 

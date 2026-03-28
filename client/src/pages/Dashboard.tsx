@@ -49,11 +49,14 @@ export default function Dashboard() {
       return { avgCost: 0, avgMargin: 0, activeCount: 0 };
     }
 
-    const recipesWithCost = (recipes as any[]).map(recipe => {
+    const recipesWithData = (recipes as any[]).map(recipe => {
       const items = recipe.ingredients ?? [];
+      
+      // Calculamos el costo buscando el ingrediente por ID en la lista global de 44 items
       const cost = items.reduce((total: number, item: any) => {
-        // Buscamos el ingrediente en la lista filtrada por tenant para asegurar el precio
-        const ingData = ingredients.find(i => i.id === (item.ingredientId || item.ingredient?.id));
+        // Buscamos coincidencia de ID (probamos varias rutas por si la estructura varía)
+        const targetId = item.ingredientId || item.id || item.ingredient?.id;
+        const ingData = ingredients.find(i => i.id === targetId);
         
         if (!ingData) return total;
 
@@ -64,29 +67,29 @@ export default function Dashboard() {
         return total + ((price / size) * quantity);
       }, 0);
       
-      return { ...recipe, realCost: cost };
+      // Priorizamos el margen individual de la receta
+      const margin = recipe.pricingPercentage !== undefined 
+        ? Number(recipe.pricingPercentage) 
+        : tenantMargin;
+
+      return { ...recipe, realCost: cost, realMargin: margin };
     });
 
-    // Filtramos recetas que tengan costo mayor a 0 para el promedio real
-    const activeRecipes = recipesWithCost.filter(r => r.realCost > 0);
+    // Filtramos para promediar solo las recetas que tienen ingredientes cargados (como tus 2 recetas actuales)
+    const activeRecipes = recipesWithData.filter(r => (r.ingredients ?? []).length > 0);
 
     if (activeRecipes.length === 0) {
       return { avgCost: 0, avgMargin: 0, activeCount: 0 };
     }
 
-    const totalActive = activeRecipes.length;
+    const totalCount = activeRecipes.length;
     const sumCosts = activeRecipes.reduce((acc, r) => acc + r.realCost, 0);
-
-    // FIX DEFINITIVO: Prioriza el margen individual guardado en cada receta.
-    // Si no existe (undefined o null), usa el del local (tenantMargin).
-    const sumMargins = activeRecipes.reduce((acc, r) => 
-      acc + (r.pricingPercentage !== undefined ? Number(r.pricingPercentage) : tenantMargin), 0
-    );
+    const sumMargins = activeRecipes.reduce((acc, r) => acc + r.realMargin, 0);
 
     return {
-      avgCost: sumCosts / totalActive,
-      avgMargin: sumMargins / totalActive,
-      activeCount: totalActive
+      avgCost: sumCosts / totalCount,
+      avgMargin: sumMargins / totalCount,
+      activeCount: totalCount
     };
   }, [recipes, ingredients, tenantMargin]);
 
@@ -133,7 +136,7 @@ export default function Dashboard() {
             value={`${stats.avgMargin.toFixed(0)}%`}
             icon={TrendingUp}
             loading={isLoadingRecipes}
-            description="Margen promedio actual"
+            description="Margen promedio del menú"
           />
         </div>
 

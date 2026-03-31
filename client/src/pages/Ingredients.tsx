@@ -63,9 +63,9 @@ export default function IngredientsPage() {
 
   return (
     <Shell>
-      <div className="flex flex-col gap-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-w-0">
-          <div>
+      <div className="flex flex-col gap-6 w-full min-w-0">
+        <div className="flex flex-col gap-4">
+          <div className="min-w-0">
             <h1 className="text-3xl font-bold tracking-tight font-display mb-1">
               Ingredientes
             </h1>
@@ -74,22 +74,24 @@ export default function IngredientsPage() {
             </p>
           </div>
 
-          <Button
-  onClick={() => setIsCreateOpen(true)}
-  className="btn-primary w-full sm:w-auto"
->
-  <Plus className="mr-2 h-4 w-4 shrink-0" />
-  <span className="sm:hidden">Agregar</span>
-  <span className="hidden sm:inline">Agregar Ingrediente</span>
-</Button>
+          <div className="w-full">
+            <Button
+              onClick={() => setIsCreateOpen(true)}
+              type="button"
+              className="w-full h-12 px-4 flex items-center justify-center gap-2 whitespace-nowrap overflow-hidden bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4 shrink-0" />
+              <span className="block truncate">Agregar Ingrediente</span>
+            </Button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 max-w-sm">
-          <div className="relative flex-1">
+        <div className="flex items-center gap-2 w-full">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar ingredientes..."
-              className="pl-9 bg-card border-border/50"
+              className="pl-9 bg-card border-border/50 w-full"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -97,24 +99,16 @@ export default function IngredientsPage() {
         </div>
 
         <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="w-full overflow-x-auto">
             <Table className="min-w-[760px]">
               <TableHeader className="bg-muted/30">
                 <TableRow>
-                  <TableHead className="min-w-[220px] font-semibold">Nombre</TableHead>
-                  <TableHead className="min-w-[90px] font-semibold">Unidad</TableHead>
-                  <TableHead className="min-w-[130px] font-semibold">
-                    Tamaño del Paquete
-                  </TableHead>
-                  <TableHead className="min-w-[140px] font-semibold">
-                    Precio del Paquete
-                  </TableHead>
-                  <TableHead className="min-w-[150px] font-semibold">
-                    Costo por Unidad
-                  </TableHead>
-                  <TableHead className="min-w-[110px] text-right font-semibold">
-                    Acciones
-                  </TableHead>
+                  <TableHead className="w-[300px] font-semibold">Nombre</TableHead>
+                  <TableHead className="font-semibold">Unidad</TableHead>
+                  <TableHead className="font-semibold">Tamaño del Paquete</TableHead>
+                  <TableHead className="font-semibold">Precio del Paquete</TableHead>
+                  <TableHead className="font-semibold">Costo por Unidad</TableHead>
+                  <TableHead className="text-right font-semibold">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
 
@@ -217,8 +211,8 @@ function IngredientForm({
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
       <div className="space-y-2">
-        <Label htmlFor="name">Nombre</Label>
-        <Input id="name" {...form.register("name")} placeholder="Ej. Harina" />
+        <Label htmlFor="name">Name</Label>
+        <Input id="name" {...form.register("name")} placeholder="e.g. Flour" />
         {form.formState.errors.name && (
           <p className="text-xs text-destructive">
             {form.formState.errors.name.message}
@@ -228,14 +222,13 @@ function IngredientForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="unit">Unidad</Label>
+          <Label htmlFor="unit">Unit</Label>
           <Input
             id="unit"
             {...form.register("unit")}
-            placeholder="Ej. kg, L, unidad"
+            placeholder="e.g. kg, l, pcs"
           />
         </div>
-
         <div className="space-y-2">
           <Label htmlFor="packageSize">Tamaño del Paquete</Label>
           <Input
@@ -243,7 +236,7 @@ function IngredientForm({
             type="number"
             step="0.01"
             {...form.register("packageSize", { valueAsNumber: true })}
-            placeholder="Cantidad del envase"
+            placeholder="Amount in pkg"
           />
           {form.formState.errors.packageSize && (
             <p className="text-xs text-destructive">
@@ -260,7 +253,7 @@ function IngredientForm({
           type="number"
           step="0.01"
           {...form.register("price", { valueAsNumber: true })}
-          placeholder="Costo del paquete"
+          placeholder="Cost of package"
         />
         {form.formState.errors.price && (
           <p className="text-xs text-destructive">
@@ -270,8 +263,12 @@ function IngredientForm({
       </div>
 
       <DialogFooter className="pt-4">
-        <Button type="submit" disabled={isLoading} className="btn-primary w-full">
-          {isLoading ? "Guardando..." : "Guardar Ingrediente"}
+        <Button
+          type="submit"
+          disabled={isLoading}
+          className="btn-primary w-full"
+        >
+          {isLoading ? "Saving..." : "Save Ingredient"}
         </Button>
       </DialogFooter>
     </form>
@@ -294,8 +291,8 @@ function CreateIngredientDialog({
     mutate(data, {
       onSuccess: () => {
         toast({
-          title: "Éxito",
-          description: "Ingrediente creado correctamente",
+          title: "Success",
+          description: "Ingredient created successfully",
         });
         onOpenChange(false);
       },
@@ -315,7 +312,7 @@ function CreateIngredientDialog({
         <DialogHeader>
           <DialogTitle>Agregar Ingrediente</DialogTitle>
           <DialogDescription>
-            Introduzca los detalles de un nuevo ingrediente.
+            Introduzca los detalles de un nuevo ingrediente crudo.
           </DialogDescription>
         </DialogHeader>
         <IngredientForm onSubmit={onSubmit} isLoading={isPending} />
@@ -341,8 +338,8 @@ function EditIngredientDialog({
       {
         onSuccess: () => {
           toast({
-            title: "Éxito",
-            description: "Ingrediente actualizado correctamente",
+            title: "Success",
+            description: "Ingredient updated successfully",
           });
           setOpen(false);
         },
@@ -371,7 +368,7 @@ function EditIngredientDialog({
 
       <DialogContent className="w-[calc(100vw-2rem)] max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Editar Ingrediente</DialogTitle>
+          <DialogTitle>Edit Ingredient</DialogTitle>
         </DialogHeader>
 
         <IngredientForm
@@ -404,7 +401,7 @@ function DeleteIngredientDialog({
   const onDelete = () => {
     mutate(id, {
       onSuccess: () => {
-        toast({ title: "Éxito", description: "Ingrediente eliminado" });
+        toast({ title: "Success", description: "Ingredient deleted" });
       },
       onError: (err: Error) => {
         toast({
@@ -430,20 +427,21 @@ function DeleteIngredientDialog({
 
       <AlertDialogContent className="w-[calc(100vw-2rem)] max-w-md">
         <AlertDialogHeader>
-          <AlertDialogTitle>Eliminar {name}?</AlertDialogTitle>
+          <AlertDialogTitle>Delete {name}?</AlertDialogTitle>
           <AlertDialogDescription>
-            Esta acción no se puede deshacer. Eliminará permanentemente el ingrediente.
+            Esta acción no se puede deshacer.
+            Eliminará permanentemente el ingrediente.
             Cualquier receta que lo use deberá actualizarse.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-col-reverse sm:flex-row">
-          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={onDelete}
             disabled={isPending}
             className="bg-destructive hover:bg-destructive/90"
           >
-            {isPending ? "Eliminando..." : "Eliminar"}
+            {isPending ? "Deleting..." : "Delete"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

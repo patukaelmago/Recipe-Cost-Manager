@@ -9,6 +9,7 @@ import {
   serverTimestamp,
   query,
   orderBy,
+  limit,
 } from "firebase/firestore";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { db } from "@/lib/firebase";
@@ -35,6 +36,9 @@ export type Recipe = {
   name: string;
   description?: string;
   ingredients: RecipeIngredientItem[];
+  pricingPercentage?: number;
+  createdAt?: any;
+  updatedAt?: any;
 };
 
 const TENANTS_COL = "tenants" as const;
@@ -66,6 +70,12 @@ function mapRecipeBase(id: string, data: any): Omit<Recipe, "ingredients"> {
     id,
     name: String(data?.name ?? ""),
     description: String(data?.description ?? ""),
+    pricingPercentage:
+      data?.pricingPercentage !== undefined && data?.pricingPercentage !== null
+        ? Number(data.pricingPercentage)
+        : undefined,
+    createdAt: data?.createdAt ?? null,
+    updatedAt: data?.updatedAt ?? null,
   };
 }
 
@@ -101,10 +111,77 @@ export function useRecipes(tenantId: string = DEFAULT_TENANT_ID) {
   return useQuery({
     queryKey: ["recipes", tenantId],
     queryFn: async (): Promise<Recipe[]> => {
-      const q = query(tenantRecipesCollection(tenantId), orderBy("name"));
-      const snap = await getDocs(q);
+      const recipesQ = query(
+        tenantRecipesCollection(tenantId),
+        orderBy("updatedAt", "desc")
+      );
 
-      return snap.docs.map((d) => ({
+      const recipesSnap = await getDocs(recipesQ);
+
+      const ingredientSnap = await getDocs(tenantIngredientsCollection(tenantId));
+      const ingredientsMap = new Map<string, Ingredient>();
+
+      ingredientSnap.docs.forEach((d) => {
+        ingredientsMap.set(d.id, mapIngredient(d.id, d.data()));
+      });
+
+      const recipes = await Promise.all(
+        recipesSnap.docs.map(async (recipeDoc) => {
+          const base = mapRecipeBase(recipeDoc.id, recipeDoc.data());
+
+          const itemsSnap = await getDocs(
+            tenantRecipeItemsCollection(recipeDoc.id, tenantId)
+          );
+
+          const items: RecipeIngredientItem[] = itemsSnap.docs.map((d) => {
+            const data = d.data() as any;
+            const ingredientId = String(data?.ingredientId ?? "");
+            const ingredient =
+              ingredientsMap.get(ingredientId) ??
+              {
+                id: ingredientId,
+                name: "Unknown",
+                unit: "u",
+                packageSize: 1,
+                price: 0,
+              };
+
+            return {
+              id: d.id,
+              ingredientId,
+              quantity: Number(data?.quantity ?? 0),
+              ingredient,
+            };
+          });
+
+          return {
+            ...base,
+            ingredients: items,
+          };
+        })
+      );
+
+      return recipes;
+    },
+  });
+}
+
+export function useRecentRecipes(
+  tenantId: string = DEFAULT_TENANT_ID,
+  maxItems: number = 5
+) {
+  return useQuery({
+    queryKey: ["recent-recipes", tenantId, maxItems],
+    queryFn: async (): Promise<Recipe[]> => {
+      const recipesQ = query(
+        tenantRecipesCollection(tenantId),
+        orderBy("updatedAt", "desc"),
+        limit(maxItems)
+      );
+
+      const recipesSnap = await getDocs(recipesQ);
+
+      return recipesSnap.docs.map((d) => ({
         ...mapRecipeBase(d.id, d.data()),
         ingredients: [],
       }));
@@ -205,6 +282,7 @@ export function useCreateRecipe(tenantId: string = DEFAULT_TENANT_ID) {
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["recipes", tenantId] });
+      await qc.invalidateQueries({ queryKey: ["recent-recipes", tenantId] });
     },
   });
 }
@@ -227,6 +305,7 @@ export function useUpdateRecipe(tenantId: string = DEFAULT_TENANT_ID) {
     },
     onSuccess: async (_id, vars) => {
       await qc.invalidateQueries({ queryKey: ["recipes", tenantId] });
+      await qc.invalidateQueries({ queryKey: ["recent-recipes", tenantId] });
       await qc.invalidateQueries({ queryKey: ["recipe", tenantId, vars.id] });
     },
   });
@@ -243,6 +322,7 @@ export function useDeleteRecipe(tenantId: string = DEFAULT_TENANT_ID) {
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["recipes", tenantId] });
+      await qc.invalidateQueries({ queryKey: ["recent-recipes", tenantId] });
     },
   });
 }
@@ -271,11 +351,16 @@ export function useAddRecipeIngredient(tenantId: string = DEFAULT_TENANT_ID) {
         updatedAt: serverTimestamp(),
       });
 
+      await updateDoc(tenantRecipeDoc(recipeId, tenantId), {
+        updatedAt: serverTimestamp(),
+      });
+
       return ref.id;
     },
     onSuccess: async (_id, vars) => {
       await qc.invalidateQueries({ queryKey: ["recipe", tenantId, vars.recipeId] });
       await qc.invalidateQueries({ queryKey: ["recipes", tenantId] });
+      await qc.invalidateQueries({ queryKey: ["recent-recipes", tenantId] });
     },
   });
 }
@@ -294,11 +379,16 @@ export function useRemoveRecipeIngredient(tenantId: string = DEFAULT_TENANT_ID) 
       const ref = tenantRecipeItemDoc(recipeId, itemId, tenantId);
       await deleteDoc(ref);
 
+      await updateDoc(tenantRecipeDoc(recipeId, tenantId), {
+        updatedAt: serverTimestamp(),
+      });
+
       return itemId;
     },
     onSuccess: async (_id, vars) => {
       await qc.invalidateQueries({ queryKey: ["recipe", tenantId, vars.recipeId] });
       await qc.invalidateQueries({ queryKey: ["recipes", tenantId] });
+      await qc.invalidateQueries({ queryKey: ["recent-recipes", tenantId] });
     },
   });
 }

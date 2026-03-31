@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useRecipes, useCreateRecipe } from "@/hooks/use-recipes";
+import { useTenantSettings } from "@/hooks/use-tenant-settings";
 import { Plus, Search, UtensilsCrossed, ArrowRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useRoute } from "wouter";
@@ -34,14 +35,22 @@ export default function Recipes() {
   const tenant = params?.tenant ?? "picania";
 
   const { data: recipes, isLoading } = useRecipes(tenant);
+  const { data: tenantSettings } = useTenantSettings(tenant);
   const [search, setSearch] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  const defaultMargin = Number(tenantSettings?.pricingPercentage ?? 50);
 
   const filteredRecipes = useMemo(() => {
     const list = recipes ?? [];
     const q = search.trim().toLowerCase();
     if (!q) return list;
-    return list.filter((r) => r.name.toLowerCase().includes(q));
+
+    return list.filter((r) => {
+      const name = String(r.name ?? "").toLowerCase();
+      const description = String(r.description ?? "").toLowerCase();
+      return name.includes(q) || description.includes(q);
+    });
   }, [recipes, search]);
 
   return (
@@ -82,7 +91,12 @@ export default function Recipes() {
             </div>
           ) : (
             filteredRecipes.map((recipe) => (
-              <RecipeCard key={recipe.id} recipe={recipe} tenant={tenant} />
+              <RecipeCard
+                key={recipe.id}
+                recipe={recipe}
+                tenant={tenant}
+                defaultMargin={defaultMargin}
+              />
             ))
           )}
         </div>
@@ -92,6 +106,7 @@ export default function Recipes() {
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
         tenant={tenant}
+        defaultMargin={defaultMargin}
       />
     </Shell>
   );
@@ -100,10 +115,51 @@ export default function Recipes() {
 function RecipeCard({
   recipe,
   tenant,
+  defaultMargin,
 }: {
-  recipe: { id: string; name: string; description?: string };
+  recipe: {
+    id: string;
+    name: string;
+    description?: string;
+    pricingPercentage?: number;
+    ingredients?: Array<{
+      id: string;
+      ingredientId: string;
+      quantity: number;
+      ingredient?: {
+        id: string;
+        name: string;
+        unit: string;
+        packageSize: number;
+        price: number;
+      };
+    }>;
+  };
   tenant: string;
+  defaultMargin: number;
 }) {
+  const items = Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
+
+  const cost = items.reduce((total, item) => {
+    const ingredient = item.ingredient;
+    if (!ingredient) return total;
+
+    const price = Number(ingredient.price ?? 0);
+    const packageSize = Number(ingredient.packageSize ?? 0);
+    const quantity = Number(item.quantity ?? 0);
+
+    if (!packageSize || !quantity) return total;
+
+    return total + (price / packageSize) * quantity;
+  }, 0);
+
+  const margin =
+    recipe.pricingPercentage !== undefined && recipe.pricingPercentage !== null
+      ? Number(recipe.pricingPercentage)
+      : defaultMargin;
+
+  const price = cost * (1 + margin / 100);
+
   return (
     <Card className="card-hover group border-border/50 overflow-hidden flex flex-col h-full">
       <CardHeader>
@@ -112,13 +168,36 @@ function RecipeCard({
             <UtensilsCrossed className="h-6 w-6" />
           </div>
         </div>
-        <CardTitle className="font-display text-xl line-clamp-1">{recipe.name}</CardTitle>
+
+        <CardTitle className="font-display text-xl line-clamp-1">
+          {recipe.name}
+        </CardTitle>
+
         <CardDescription className="line-clamp-2 h-10">
           {recipe.description || "No se proporciona descripción."}
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="flex-1">
+      <CardContent className="flex-1 space-y-3">
+        <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Costo</span>
+            <span className="font-medium text-foreground">
+              ${cost.toFixed(2)}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Precio</span>
+            <span className="font-semibold text-primary">
+              ${price.toFixed(2)}{" "}
+              <span className="text-muted-foreground font-normal">
+                ({margin.toFixed(0)}%)
+              </span>
+            </span>
+          </div>
+        </div>
+
         <div className="text-sm text-muted-foreground">
           Haga clic en los detalles para administrar los ingredientes y ver los costos.
         </div>
@@ -142,14 +221,15 @@ function RecipeCard({
 
 function RecipeSkeleton() {
   return (
-    <Card className="border-border/50 h-[280px]">
+    <Card className="border-border/50 h-[320px]">
       <CardHeader>
         <Skeleton className="h-12 w-12 rounded-xl mb-4" />
         <Skeleton className="h-6 w-3/4 mb-2" />
         <Skeleton className="h-4 w-full" />
       </CardHeader>
-      <CardContent>
-        <Skeleton className="h-4 w-1/2" />
+      <CardContent className="space-y-3">
+        <Skeleton className="h-16 w-full rounded-lg" />
+        <Skeleton className="h-4 w-3/4" />
       </CardContent>
       <CardFooter>
         <Skeleton className="h-10 w-full rounded-md" />
@@ -162,21 +242,22 @@ function CreateRecipeDialog({
   open,
   onOpenChange,
   tenant,
+  defaultMargin,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   tenant: string;
+  defaultMargin: number;
 }) {
   const { mutate, isPending } = useCreateRecipe(tenant);
   const { toast } = useToast();
 
   const form = useForm<InsertRecipe>({
     resolver: zodResolver(insertRecipeSchema),
-    // Agregamos pricingPercentage por defecto aquí
-    defaultValues: { 
-      name: "", 
+    defaultValues: {
+      name: "",
       description: "",
-      pricingPercentage: 50 
+      pricingPercentage: defaultMargin,
     } as any,
   });
 
@@ -184,7 +265,11 @@ function CreateRecipeDialog({
     mutate(data, {
       onSuccess: () => {
         toast({ title: "Éxito", description: "Receta creada correctamente." });
-        form.reset();
+        form.reset({
+          name: "",
+          description: "",
+          pricingPercentage: defaultMargin,
+        } as any);
         onOpenChange(false);
       },
       onError: (err: any) => {
@@ -194,11 +279,25 @@ function CreateRecipeDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        onOpenChange(nextOpen);
+        if (nextOpen) {
+          form.reset({
+            name: "",
+            description: "",
+            pricingPercentage: defaultMargin,
+          } as any);
+        }
+      }}
+    >
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Crea una nueva Receta</DialogTitle>
-          <DialogDescription>Empieza por darle un nombre, descripción y margen a tu receta.</DialogDescription>
+          <DialogDescription>
+            Empieza por darle un nombre, descripción y margen a tu receta.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
@@ -220,13 +319,12 @@ function CreateRecipeDialog({
             />
           </div>
 
-          {/* Nuevo campo de Margen Individual */}
           <div className="space-y-2">
             <Label htmlFor="pricingPercentage">Margen de Ganancia (%)</Label>
-            <Input 
-              id="pricingPercentage" 
-              type="number" 
-              {...form.register("pricingPercentage", { valueAsNumber: true })} 
+            <Input
+              id="pricingPercentage"
+              type="number"
+              {...form.register("pricingPercentage", { valueAsNumber: true })}
               placeholder="50"
             />
           </div>

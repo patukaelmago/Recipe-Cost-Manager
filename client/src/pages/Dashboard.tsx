@@ -1,13 +1,18 @@
 import { Shell } from "@/components/layout/Shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useIngredients } from "@/hooks/use-ingredients";
-import { useRecipes } from "@/hooks/use-recipes";
 import { ChefHat, TrendingUp, UtensilsCrossed, DollarSign } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  getDocs,
+  collection,
+  query,
+  orderBy,
+} from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useRoute } from "wouter";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import {
   BarChart,
   Bar,
@@ -18,87 +23,214 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+type Ingredient = {
+  id: string;
+  name: string;
+  unit: string;
+  packageSize: number;
+  price: number;
+};
+
+type RecipeIngredientItem = {
+  id: string;
+  ingredientId: string;
+  quantity: number;
+  ingredient?: Ingredient;
+};
+
+type Recipe = {
+  id: string;
+  name: string;
+  description?: string;
+  pricingPercentage?: number;
+  createdAt?: any;
+  updatedAt?: any;
+  ingredients: RecipeIngredientItem[];
+};
+
+type DashboardStats = {
+  totalIngredients: number;
+  totalRecipes: number;
+  avgCost: number;
+  avgMargin: number;
+  activeCount: number;
+  recentRecipes: Recipe[];
+};
+
 export default function Dashboard() {
   const [, params] = useRoute("/:tenant/dashboard");
   const tenant = params?.tenant ?? "picania";
 
-  // IMPORTANTE: Pasamos el tenant a los hooks para que filtren por local
-  const { data: ingredients, isLoading: isLoadingIngredients } = useIngredients(tenant);
-  const { data: recipes, isLoading: isLoadingRecipes } = useRecipes(tenant);
   const [tenantMargin, setTenantMargin] = useState(50);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalIngredients: 0,
+    totalRecipes: 0,
+    avgCost: 0,
+    avgMargin: 0,
+    activeCount: 0,
+    recentRecipes: [],
+  });
 
-  // Cargar la configuración del tenant (margen por defecto)
+  const [isLoadingTenantConfig, setIsLoadingTenantConfig] = useState(true);
+  const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
+
   useEffect(() => {
     const fetchTenantConfig = async () => {
       try {
+        setIsLoadingTenantConfig(true);
+
         const tenantRef = doc(db, "tenants", tenant);
         const snap = await getDoc(tenantRef);
+
         if (snap.exists() && snap.data().pricingPercentage !== undefined) {
           setTenantMargin(Number(snap.data().pricingPercentage));
+        } else {
+          setTenantMargin(50);
         }
       } catch (err) {
         console.error("Error al cargar config del tenant:", err);
+        setTenantMargin(50);
+      } finally {
+        setIsLoadingTenantConfig(false);
       }
     };
+
     fetchTenantConfig();
   }, [tenant]);
 
-  // Lógica para calcular estadísticas dinámicas
-  const stats = useMemo(() => {
-    if (!recipes || !ingredients || recipes.length === 0) {
-      return { avgCost: 0, avgMargin: 0, activeCount: 0 };
-    }
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setIsLoadingDashboard(true);
 
-    const recipesWithData = (recipes as any[]).map(recipe => {
-      const items = recipe.ingredients ?? [];
-      
-      // Calculamos el costo buscando el ingrediente por ID en la lista global de 44 items
-      const cost = items.reduce((total: number, item: any) => {
-        // Buscamos coincidencia de ID (probamos varias rutas por si la estructura varía)
-        const targetId = item.ingredientId || item.id || item.ingredient?.id;
-        const ingData = ingredients.find(i => i.id === targetId);
-        
-        if (!ingData) return total;
+        const ingredientsRef = collection(db, "tenants", tenant, "ingredients");
+        const recipesRef = collection(db, "tenants", tenant, "recipes");
 
-        const price = Number(ingData.price) || 0;
-        const size = Number(ingData.packageSize) || 1;
-        const quantity = Number(item.quantity) || 0;
+        const [ingredientsSnap, recipesSnap] = await Promise.all([
+          getDocs(query(ingredientsRef, orderBy("name"))),
+          getDocs(query(recipesRef, orderBy("updatedAt", "desc"))),
+        ]);
 
-        return total + ((price / size) * quantity);
-      }, 0);
-      
-      // Priorizamos el margen individual de la receta
-      const margin = recipe.pricingPercentage !== undefined 
-        ? Number(recipe.pricingPercentage) 
-        : tenantMargin;
+        const ingredientsMap = new Map<string, Ingredient>();
 
-      return { ...recipe, realCost: cost, realMargin: margin };
-    });
+        ingredientsSnap.docs.forEach((d) => {
+          const data = d.data() as any;
 
-    // Filtramos para promediar solo las recetas que tienen ingredientes cargados (como tus 2 recetas actuales)
-    const activeRecipes = recipesWithData.filter(r => (r.ingredients ?? []).length > 0);
+          ingredientsMap.set(d.id, {
+            id: d.id,
+            name: String(data?.name ?? ""),
+            unit: String(data?.unit ?? ""),
+            packageSize: Number(data?.packageSize ?? 0),
+            price: Number(data?.price ?? 0),
+          });
+        });
 
-    if (activeRecipes.length === 0) {
-      return { avgCost: 0, avgMargin: 0, activeCount: 0 };
-    }
+        const recipes: Recipe[] = await Promise.all(
+          recipesSnap.docs.map(async (recipeDoc) => {
+            const recipeData = recipeDoc.data() as any;
 
-    const totalCount = activeRecipes.length;
-    const sumCosts = activeRecipes.reduce((acc, r) => acc + r.realCost, 0);
-    const sumMargins = activeRecipes.reduce((acc, r) => acc + r.realMargin, 0);
+            const recipeItemsRef = collection(
+              db,
+              "tenants",
+              tenant,
+              "recipes",
+              recipeDoc.id,
+              "ingredients"
+            );
 
-    return {
-      avgCost: sumCosts / totalCount,
-      avgMargin: sumMargins / totalCount,
-      activeCount: totalCount
+            const recipeItemsSnap = await getDocs(recipeItemsRef);
+
+            const recipeItems: RecipeIngredientItem[] = recipeItemsSnap.docs.map((itemDoc) => {
+              const itemData = itemDoc.data() as any;
+              const ingredientId = String(itemData?.ingredientId ?? "");
+              const ingredient = ingredientsMap.get(ingredientId);
+
+              return {
+                id: itemDoc.id,
+                ingredientId,
+                quantity: Number(itemData?.quantity ?? 0),
+                ingredient,
+              };
+            });
+
+            return {
+              id: recipeDoc.id,
+              name: String(recipeData?.name ?? ""),
+              description: String(recipeData?.description ?? ""),
+              pricingPercentage:
+                recipeData?.pricingPercentage !== undefined &&
+                recipeData?.pricingPercentage !== null
+                  ? Number(recipeData.pricingPercentage)
+                  : undefined,
+              createdAt: recipeData?.createdAt ?? null,
+              updatedAt: recipeData?.updatedAt ?? null,
+              ingredients: recipeItems,
+            };
+          })
+        );
+
+        const recipesWithCost = recipes.map((recipe) => {
+          const realCost = recipe.ingredients.reduce((total, item) => {
+            if (!item.ingredient) return total;
+
+            const price = Number(item.ingredient.price ?? 0);
+            const packageSize = Number(item.ingredient.packageSize ?? 0);
+            const quantity = Number(item.quantity ?? 0);
+
+            if (!packageSize || !quantity) return total;
+
+            return total + (price / packageSize) * quantity;
+          }, 0);
+
+          const realMargin =
+            recipe.pricingPercentage !== undefined && recipe.pricingPercentage !== null
+              ? Number(recipe.pricingPercentage)
+              : tenantMargin;
+
+          return {
+            ...recipe,
+            realCost,
+            realMargin,
+            hasIngredients: recipe.ingredients.length > 0,
+          };
+        });
+
+        const activeRecipes = recipesWithCost.filter((recipe) => recipe.hasIngredients);
+
+        const totalCost = activeRecipes.reduce((acc, recipe) => acc + recipe.realCost, 0);
+        const totalMargin = activeRecipes.reduce((acc, recipe) => acc + recipe.realMargin, 0);
+
+        setStats({
+          totalIngredients: ingredientsSnap.size,
+          totalRecipes: recipes.length,
+          avgCost: activeRecipes.length > 0 ? totalCost / activeRecipes.length : 0,
+          avgMargin: activeRecipes.length > 0 ? totalMargin / activeRecipes.length : 0,
+          activeCount: activeRecipes.length,
+          recentRecipes: recipes.slice(0, 5),
+        });
+      } catch (err) {
+        console.error("Error al cargar dashboard:", err);
+        setStats({
+          totalIngredients: 0,
+          totalRecipes: 0,
+          avgCost: 0,
+          avgMargin: 0,
+          activeCount: 0,
+          recentRecipes: [],
+        });
+      } finally {
+        setIsLoadingDashboard(false);
+      }
     };
-  }, [recipes, ingredients, tenantMargin]);
 
-  const totalIngredients = ingredients?.length || 0;
-  const totalRecipes = recipes?.length || 0;
+    if (!isLoadingTenantConfig) {
+      fetchDashboardData();
+    }
+  }, [tenant, tenantMargin, isLoadingTenantConfig]);
 
   const chartData = [
-    { name: "Ingredientes", total: totalIngredients },
-    { name: "Recetas", total: totalRecipes },
+    { name: "Ingredientes", total: stats.totalIngredients },
+    { name: "Recetas", total: stats.totalRecipes },
   ];
 
   return (
@@ -112,30 +244,30 @@ export default function Dashboard() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Ingredientes"
-            value={totalIngredients}
+            value={stats.totalIngredients}
             icon={ChefHat}
-            loading={isLoadingIngredients}
+            loading={isLoadingDashboard}
             description="Artículos activos en stock"
           />
           <StatCard
             title="Recetas"
-            value={totalRecipes}
+            value={stats.totalRecipes}
             icon={UtensilsCrossed}
-            loading={isLoadingRecipes}
+            loading={isLoadingDashboard}
             description="Cantidad de recetas creadas"
           />
           <StatCard
             title="Costo Promedio"
             value={`$${stats.avgCost.toFixed(2)}`}
             icon={DollarSign}
-            loading={isLoadingRecipes}
+            loading={isLoadingDashboard}
             description={`Basado en ${stats.activeCount} recetas costeadas`}
           />
           <StatCard
             title="Margen Promedio"
             value={`${stats.avgMargin.toFixed(0)}%`}
             icon={TrendingUp}
-            loading={isLoadingRecipes}
+            loading={isLoadingDashboard}
             description="Margen promedio del menú"
           />
         </div>
@@ -163,9 +295,13 @@ export default function Dashboard() {
                       tickLine={false}
                       axisLine={false}
                     />
-                    <Tooltip 
-                      cursor={{ fill: 'transparent' }}
-                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                    <Tooltip
+                      cursor={{ fill: "transparent" }}
+                      contentStyle={{
+                        borderRadius: "8px",
+                        border: "none",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      }}
                     />
                     <Bar
                       dataKey="total"
@@ -178,28 +314,33 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="col-span-3 shadow-sm border-border/50">
             <CardHeader>
               <CardTitle className="font-display text-xl">Recetas recientes</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {isLoadingRecipes ? (
-                  Array(3).fill(0).map((_, i) => (
-                    <div key={i} className="flex items-center gap-4">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="space-y-2">
-                        <Skeleton className="h-4 w-[150px]" />
-                        <Skeleton className="h-3 w-[100px]" />
+                {isLoadingDashboard ? (
+                  Array(3)
+                    .fill(0)
+                    .map((_, i) => (
+                      <div key={i} className="flex items-center gap-4">
+                        <Skeleton className="h-10 w-10 rounded-full" />
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-[150px]" />
+                          <Skeleton className="h-3 w-[100px]" />
+                        </div>
                       </div>
-                    </div>
-                  ))
-                ) : (recipes as any[])?.length === 0 ? (
+                    ))
+                ) : stats.recentRecipes.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">Sin recetas.</p>
                 ) : (
-                  (recipes as any[])?.slice(0, 5).map((recipe) => (
-                    <div key={recipe.id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-secondary/50 transition-colors">
+                  stats.recentRecipes.map((recipe) => (
+                    <div
+                      key={recipe.id}
+                      className="flex items-center gap-4 p-3 rounded-lg hover:bg-secondary/50 transition-colors"
+                    >
                       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                         <UtensilsCrossed className="h-5 w-5" />
                       </div>

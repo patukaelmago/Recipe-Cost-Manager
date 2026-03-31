@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   useTenantSettings,
-  useUpdateTenantSettings,
 } from "@/hooks/use-tenant-settings";
 import {
   useRecipe,
@@ -70,9 +69,6 @@ export default function RecipeDetail() {
 
   const { data: recipe, isLoading } = useRecipe(recipeId, tenant);
   const { data: tenantSettings } = useTenantSettings(tenant);
-  
-  // Eliminamos el mutate global para no usarlo por error en esta pantalla
-  // const { mutate: updateTenantSettings, isPending: isUpdatingTenantSettings } = useUpdateTenantSettings(tenant);
 
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -90,8 +86,9 @@ export default function RecipeDetail() {
     }, 0);
   }, [recipe]);
 
-  // FIX: Ahora priorizamos el margen guardado en la receta
-  const pricingPercentage = (recipe as any)?.pricingPercentage ?? tenantSettings?.pricingPercentage ?? 50;
+  const pricingPercentage =
+    (recipe as any)?.pricingPercentage ?? tenantSettings?.pricingPercentage ?? 50;
+
   const suggestedPrice = ingredientsCost * (1 + pricingPercentage / 100);
 
   const handleSaveQuantity = async () => {
@@ -126,21 +123,18 @@ export default function RecipeDetail() {
         updatedAt: serverTimestamp(),
       });
 
-      queryClient.setQueryData(
-        ["recipe", tenant, recipeId],
-        (oldData: any) => {
-          if (!oldData) return oldData;
+      queryClient.setQueryData(["recipe", tenant, recipeId], (oldData: any) => {
+        if (!oldData) return oldData;
 
-          return {
-            ...oldData,
-            ingredients: oldData.ingredients.map((item: any) =>
-              item.id === editingItem.id
-                ? { ...item, quantity: quantityNumber }
-                : item
-            ),
-          };
-        }
-      );
+        return {
+          ...oldData,
+          ingredients: oldData.ingredients.map((item: any) =>
+            item.id === editingItem.id
+              ? { ...item, quantity: quantityNumber }
+              : item
+          ),
+        };
+      });
 
       toast({
         title: "Actualizado",
@@ -166,7 +160,6 @@ export default function RecipeDetail() {
     }
   };
 
-  // FIX: Función corregida para que el guardado sea INDIVIDUAL
   const handleSavePricingPercentage = async () => {
     const value = Number(pricingInput);
 
@@ -188,7 +181,6 @@ export default function RecipeDetail() {
         updatedAt: serverTimestamp(),
       });
 
-      // Actualizamos el cache local para ver el cambio inmediato
       queryClient.setQueryData(["recipe", tenant, recipeId], (oldData: any) => ({
         ...oldData,
         pricingPercentage: value,
@@ -225,7 +217,7 @@ export default function RecipeDetail() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Editar cantidad</DialogTitle>
           </DialogHeader>
@@ -236,35 +228,37 @@ export default function RecipeDetail() {
               handleSaveQuantity();
             }}
           >
-            <div className="space-y-2">
-              <Label>Ingrediente</Label>
-              <div className="text-sm text-muted-foreground">
-                {editingItem?.ingredient?.name ?? ""}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Ingrediente</Label>
+                <div className="text-sm text-muted-foreground break-words">
+                  {editingItem?.ingredient?.name ?? ""}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-quantity">
+                  Cantidad {editingItem?.ingredient?.unit ? `(${editingItem.ingredient.unit})` : ""}
+                </Label>
+                <Input
+                  id="edit-quantity"
+                  type="number"
+                  step="any"
+                  value={editQuantity}
+                  onChange={(e) => setEditQuantity(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleSaveQuantity();
+                    }
+                  }}
+                  placeholder="0.00"
+                  autoFocus
+                />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-quantity">
-                Cantidad {editingItem?.ingredient?.unit ? `(${editingItem.ingredient.unit})` : ""}
-              </Label>
-              <Input
-                id="edit-quantity"
-                type="number"
-                step="any"
-                value={editQuantity}
-                onChange={(e) => setEditQuantity(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleSaveQuantity();
-                  }
-                }}
-                placeholder="0.00"
-                autoFocus
-              />
-            </div>
-
-            <DialogFooter className="pt-2">
+            <DialogFooter className="pt-4">
               <Button type="submit" disabled={isSavingQuantity} className="w-full">
                 {isSavingQuantity ? "Guardando..." : "Guardar cantidad"}
               </Button>
@@ -282,7 +276,7 @@ export default function RecipeDetail() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Editar margen individual</DialogTitle>
           </DialogHeader>
@@ -305,15 +299,13 @@ export default function RecipeDetail() {
                 placeholder="50"
                 autoFocus
               />
-              <p className="text-xs text-muted-foreground">Este cambio solo afectará a esta receta.</p>
+              <p className="text-xs text-muted-foreground">
+                Este cambio solo afectará a esta receta.
+              </p>
             </div>
 
             <DialogFooter>
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isUpdatingRecipe}
-              >
+              <Button type="submit" className="w-full" disabled={isUpdatingRecipe}>
                 {isUpdatingRecipe ? "Guardando..." : "Guardar margen"}
               </Button>
             </DialogFooter>
@@ -323,8 +315,8 @@ export default function RecipeDetail() {
 
       <Shell>
         <div className="flex flex-col gap-8 max-w-5xl mx-auto">
-          <div className="flex flex-col sm:flex-row gap-4 justify-between items-start">
-            <div className="space-y-2">
+          <div className="flex flex-col gap-4">
+            <div className="space-y-2 min-w-0">
               <Button
                 variant="ghost"
                 className="p-0 h-auto text-muted-foreground hover:bg-transparent hover:text-foreground justify-start"
@@ -334,10 +326,11 @@ export default function RecipeDetail() {
                 <ArrowLeft className="h-4 w-4 mr-1" /> Volver a Recetas
               </Button>
 
-              <h1 className="text-4xl font-bold font-display tracking-tight text-foreground">
+              <h1 className="text-3xl sm:text-4xl font-bold font-display tracking-tight text-foreground break-words">
                 {recipe.name}
               </h1>
-              <p className="text-lg text-muted-foreground max-w-2xl">
+
+              <p className="text-base sm:text-lg text-muted-foreground break-words">
                 {recipe.description || ""}
               </p>
             </div>
@@ -359,95 +352,103 @@ export default function RecipeDetail() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
-            <Card className="md:col-span-2 shadow-sm border-border/50">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <Card className="md:col-span-2 shadow-sm border-border/50 overflow-hidden">
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2">
                 <CardTitle className="font-display text-xl">Ingredients</CardTitle>
                 <AddIngredientDialog recipeId={recipeId} tenant={tenant} />
               </CardHeader>
 
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Ingrediente</TableHead>
-                      <TableHead>Cantidad</TableHead>
-                      <TableHead>Costo Unitario</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead className="w-[50px]"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-
-                  <TableBody>
-                    {(recipe.ingredients ?? []).length === 0 ? (
+              <CardContent className="px-0 sm:px-6">
+                <div className="overflow-x-auto">
+                  <Table className="min-w-[640px]">
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                          Aún no se han añadido ingredientes.
-                        </TableCell>
+                        <TableHead className="min-w-[180px]">Ingrediente</TableHead>
+                        <TableHead className="min-w-[120px]">Cantidad</TableHead>
+                        <TableHead className="min-w-[160px]">Costo Unitario</TableHead>
+                        <TableHead className="min-w-[100px] text-right">Total</TableHead>
+                        <TableHead className="min-w-[90px]"></TableHead>
                       </TableRow>
-                    ) : (
-                      recipe.ingredients.map((item: any) => {
-                        const pricePerUnit =
-                          (item.ingredient.price ?? 0) / (item.ingredient.packageSize || 1);
-                        const totalCost = pricePerUnit * (item.quantity ?? 0);
+                    </TableHeader>
 
-                        return (
-                          <TableRow key={item.id}>
-                            <TableCell className="font-medium">{item.ingredient.name}</TableCell>
-                            <TableCell>
-                              {item.quantity} {item.ingredient.unit}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground text-xs">
-                              ${pricePerUnit.toFixed(4)}/{item.ingredient.unit}
-                            </TableCell>
-                            <TableCell className="text-right font-mono font-medium">
-                              ${totalCost.toFixed(2)}
-                            </TableCell>
-                            <TableCell className="flex gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                type="button"
-                                className="h-8 w-8 text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100"
-                                onClick={() => {
-                                  setEditingItem(item);
-                                  setEditQuantity(String(item.quantity));
-                                  setEditOpen(true);
-                                }}
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </Button>
+                    <TableBody>
+                      {(recipe.ingredients ?? []).length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                            Aún no se han añadido ingredientes.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        recipe.ingredients.map((item: any) => {
+                          const pricePerUnit =
+                            (item.ingredient.price ?? 0) / (item.ingredient.packageSize || 1);
+                          const totalCost = pricePerUnit * (item.quantity ?? 0);
 
-                              <RemoveIngredientButton
-                                recipeId={recipeId}
-                                itemId={item.id}
-                                tenant={tenant}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
+                          return (
+                            <TableRow key={item.id} className="align-top">
+                              <TableCell className="font-medium break-words whitespace-normal">
+                                {item.ingredient.name}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap">
+                                {item.quantity} {item.ingredient.unit}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
+                                ${pricePerUnit.toFixed(4)}/{item.ingredient.unit}
+                              </TableCell>
+                              <TableCell className="text-right font-mono font-medium whitespace-nowrap">
+                                ${totalCost.toFixed(2)}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-2 justify-end">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    type="button"
+                                    className="h-8 w-8 text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100"
+                                    onClick={() => {
+                                      setEditingItem(item);
+                                      setEditQuantity(String(item.quantity));
+                                      setEditOpen(true);
+                                    }}
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+
+                                  <RemoveIngredientButton
+                                    recipeId={recipeId}
+                                    itemId={item.id}
+                                    tenant={tenant}
+                                  />
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
 
             <div className="space-y-6">
               <Card className="bg-primary/5 border-primary/20 shadow-lg shadow-primary/5">
                 <CardHeader>
-                  <CardTitle className="font-display text-xl text-primary">Análisis de costos</CardTitle>
+                  <CardTitle className="font-display text-xl text-primary">
+                    Análisis de costos
+                  </CardTitle>
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  <div className="flex justify-between items-end border-b pb-4 border-primary/10">
+                  <div className="flex justify-between items-end border-b pb-4 border-primary/10 gap-4">
                     <span className="text-muted-foreground font-medium">Costo Total</span>
-                    <span className="text-4xl font-bold text-foreground font-display">
+                    <span className="text-3xl sm:text-4xl font-bold text-foreground font-display text-right break-all">
                       ${ingredientsCost.toFixed(2)}
                     </span>
                   </div>
 
                   <div className="space-y-2 pt-2">
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-sm gap-4">
                       <span className="text-muted-foreground">Recuento de ingredientes</span>
                       <span className="font-medium">{(recipe.ingredients ?? []).length}</span>
                     </div>
@@ -467,12 +468,12 @@ export default function RecipeDetail() {
                         </span>
 
                         <span className="text-xs flex items-center gap-1 text-primary font-medium">
-                          Margen  {pricingPercentage}%
+                          Margen {pricingPercentage}%
                           <Pencil className="h-3 w-3 text-primary transition-all group-hover:scale-110 group-hover:opacity-100 opacity-80" />
                         </span>
                       </div>
 
-                      <span className="font-semibold text-sm text-primary">
+                      <span className="font-semibold text-sm text-primary text-right">
                         ${suggestedPrice.toFixed(2)}
                       </span>
                     </Button>
@@ -489,7 +490,8 @@ export default function RecipeDetail() {
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
                     Los costos se calculan según los precios actuales de los ingredientes.
-                    Al actualizar los precios de los ingredientes, el costo de esta receta se actualizará automáticamente.
+                    Al actualizar los precios de los ingredientes, el costo de esta receta se
+                    actualizará automáticamente.
                   </p>
                 </CardContent>
               </Card>
@@ -575,7 +577,7 @@ function EditRecipeDialog({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Editar receta</DialogTitle>
         </DialogHeader>
@@ -661,10 +663,10 @@ function AddIngredientDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="btn-primary">Agregar Item</Button>
+        <Button className="btn-primary w-full sm:w-auto">Agregar Item</Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Agregar Ingrediente</DialogTitle>
         </DialogHeader>
@@ -700,9 +702,7 @@ function AddIngredientDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>
-              Cantidad {selected ? `(${selected.unit})` : ""}
-            </Label>
+            <Label>Cantidad {selected ? `(${selected.unit})` : ""}</Label>
             <Input
               id="qty-input"
               type="number"
@@ -714,11 +714,7 @@ function AddIngredientDialog({
           </div>
 
           <DialogFooter className="pt-4">
-            <Button
-              type="submit"
-              disabled={isPending}
-              className="btn-primary w-full"
-            >
+            <Button type="submit" disabled={isPending} className="btn-primary w-full">
               {isPending ? "Agregando..." : "Add to Recipe"}
             </Button>
           </DialogFooter>
@@ -791,15 +787,15 @@ function DeleteRecipeDialog({
         </Button>
       </AlertDialogTrigger>
 
-      <AlertDialogContent>
+      <AlertDialogContent className="w-[calc(100vw-2rem)] max-w-md">
         <AlertDialogHeader>
           <AlertDialogTitle>Borrar Receta?</AlertDialogTitle>
           <AlertDialogDescription>
-            Estàs seguro de borrar la Receta &quot;{name}&quot;? Esta acción no se puede deshacer
+            Estás seguro de borrar la Receta &quot;{name}&quot;? Esta acción no se puede deshacer
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <AlertDialogFooter>
+        <AlertDialogFooter className="flex-col-reverse sm:flex-row">
           <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction
             onClick={onDelete}

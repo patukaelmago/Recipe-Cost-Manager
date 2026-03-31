@@ -64,7 +64,7 @@ export default function IngredientsPage() {
   return (
     <Shell>
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-w-0">
           <div>
             <h1 className="text-3xl font-bold tracking-tight font-display mb-1">
               Ingredientes
@@ -73,9 +73,15 @@ export default function IngredientsPage() {
               Gestione sus materias primas y costos.
             </p>
           </div>
-          <Button onClick={() => setIsCreateOpen(true)} className="btn-primary">
-            <Plus className="mr-2 h-4 w-4" /> Agregar Ingrediente
-          </Button>
+
+          <Button
+  onClick={() => setIsCreateOpen(true)}
+  className="btn-primary w-full sm:w-auto"
+>
+  <Plus className="mr-2 h-4 w-4 shrink-0" />
+  <span className="sm:hidden">Agregar</span>
+  <span className="hidden sm:inline">Agregar Ingrediente</span>
+</Button>
         </div>
 
         <div className="flex items-center gap-2 max-w-sm">
@@ -91,41 +97,55 @@ export default function IngredientsPage() {
         </div>
 
         <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-          <Table>
-            <TableHeader className="bg-muted/30">
-              <TableRow>
-                <TableHead className="w-[300px] font-semibold">Nombre</TableHead>
-                <TableHead className="font-semibold">Unidad</TableHead>
-                <TableHead className="font-semibold">Tamaño del Paquete</TableHead>
-                <TableHead className="font-semibold">Precio del Paquete</TableHead>
-                <TableHead className="font-semibold">Costo por Unidad</TableHead>
-                <TableHead className="text-right font-semibold">Aciones</TableHead>
-              </TableRow>
-            </TableHeader>
+          <div className="overflow-x-auto">
+            <Table className="min-w-[760px]">
+              <TableHeader className="bg-muted/30">
+                <TableRow>
+                  <TableHead className="min-w-[220px] font-semibold">Nombre</TableHead>
+                  <TableHead className="min-w-[90px] font-semibold">Unidad</TableHead>
+                  <TableHead className="min-w-[130px] font-semibold">
+                    Tamaño del Paquete
+                  </TableHead>
+                  <TableHead className="min-w-[140px] font-semibold">
+                    Precio del Paquete
+                  </TableHead>
+                  <TableHead className="min-w-[150px] font-semibold">
+                    Costo por Unidad
+                  </TableHead>
+                  <TableHead className="min-w-[110px] text-right font-semibold">
+                    Acciones
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
 
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
-                    Cargando ingredientes...
-                  </TableCell>
-                </TableRow>
-              ) : filteredIngredients.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="h-32 text-center text-muted-foreground"
-                  >
-                    No se encontraron ingredientes. Añade uno para empezar.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredIngredients.map((ingredient) => (
-                  <IngredientRow key={ingredient.id} ingredient={ingredient} tenant={tenant} />
-                ))
-              )}
-            </TableBody>
-          </Table>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      Cargando ingredientes...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredIngredients.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="h-32 text-center text-muted-foreground"
+                    >
+                      No se encontraron ingredientes. Añade uno para empezar.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredIngredients.map((ingredient) => (
+                    <IngredientRow
+                      key={ingredient.id}
+                      ingredient={ingredient}
+                      tenant={tenant}
+                    />
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </div>
 
@@ -150,18 +170,24 @@ function IngredientRow({
   const cpu = size > 0 ? price / size : 0;
 
   return (
-    <TableRow className="hover:bg-muted/20">
-      <TableCell className="font-medium">{ingredient.name}</TableCell>
+    <TableRow className="hover:bg-muted/20 align-top">
+      <TableCell className="font-medium break-words whitespace-normal">
+        {ingredient.name}
+      </TableCell>
       <TableCell>{ingredient.unit}</TableCell>
       <TableCell>{ingredient.packageSize}</TableCell>
       <TableCell>${price.toFixed(2)}</TableCell>
-      <TableCell className="font-mono text-xs">
+      <TableCell className="font-mono text-xs whitespace-nowrap">
         ${cpu.toFixed(4)} / {ingredient.unit}
       </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-2">
           <EditIngredientDialog ingredient={ingredient} tenant={tenant} />
-          <DeleteIngredientDialog id={ingredient.id} name={ingredient.name} tenant={tenant} />
+          <DeleteIngredientDialog
+            id={ingredient.id}
+            name={ingredient.name}
+            tenant={tenant}
+          />
         </div>
       </TableCell>
     </TableRow>
@@ -191,8 +217,8 @@ function IngredientForm({
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
       <div className="space-y-2">
-        <Label htmlFor="name">Name</Label>
-        <Input id="name" {...form.register("name")} placeholder="e.g. Flour" />
+        <Label htmlFor="name">Nombre</Label>
+        <Input id="name" {...form.register("name")} placeholder="Ej. Harina" />
         {form.formState.errors.name && (
           <p className="text-xs text-destructive">
             {form.formState.errors.name.message}
@@ -200,15 +226,16 @@ function IngredientForm({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="unit">Unit</Label>
+          <Label htmlFor="unit">Unidad</Label>
           <Input
             id="unit"
             {...form.register("unit")}
-            placeholder="e.g. kg, l, pcs"
+            placeholder="Ej. kg, L, unidad"
           />
         </div>
+
         <div className="space-y-2">
           <Label htmlFor="packageSize">Tamaño del Paquete</Label>
           <Input
@@ -216,7 +243,7 @@ function IngredientForm({
             type="number"
             step="0.01"
             {...form.register("packageSize", { valueAsNumber: true })}
-            placeholder="Amount in pkg"
+            placeholder="Cantidad del envase"
           />
           {form.formState.errors.packageSize && (
             <p className="text-xs text-destructive">
@@ -233,7 +260,7 @@ function IngredientForm({
           type="number"
           step="0.01"
           {...form.register("price", { valueAsNumber: true })}
-          placeholder="Cost of package"
+          placeholder="Costo del paquete"
         />
         {form.formState.errors.price && (
           <p className="text-xs text-destructive">
@@ -243,12 +270,8 @@ function IngredientForm({
       </div>
 
       <DialogFooter className="pt-4">
-        <Button
-          type="submit"
-          disabled={isLoading}
-          className="btn-primary w-full"
-        >
-          {isLoading ? "Saving..." : "Save Ingredient"}
+        <Button type="submit" disabled={isLoading} className="btn-primary w-full">
+          {isLoading ? "Guardando..." : "Guardar Ingrediente"}
         </Button>
       </DialogFooter>
     </form>
@@ -271,8 +294,8 @@ function CreateIngredientDialog({
     mutate(data, {
       onSuccess: () => {
         toast({
-          title: "Success",
-          description: "Ingredient created successfully",
+          title: "Éxito",
+          description: "Ingrediente creado correctamente",
         });
         onOpenChange(false);
       },
@@ -288,11 +311,11 @@ function CreateIngredientDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Agregar Ingrediente</DialogTitle>
           <DialogDescription>
-            Introduzca los detalles de un nuevo ingrediente crudo.
+            Introduzca los detalles de un nuevo ingrediente.
           </DialogDescription>
         </DialogHeader>
         <IngredientForm onSubmit={onSubmit} isLoading={isPending} />
@@ -318,8 +341,8 @@ function EditIngredientDialog({
       {
         onSuccess: () => {
           toast({
-            title: "Success",
-            description: "Ingredient updated successfully",
+            title: "Éxito",
+            description: "Ingrediente actualizado correctamente",
           });
           setOpen(false);
         },
@@ -330,7 +353,7 @@ function EditIngredientDialog({
             variant: "destructive",
           });
         },
-      },
+      }
     );
   };
 
@@ -346,9 +369,9 @@ function EditIngredientDialog({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Edit Ingredient</DialogTitle>
+          <DialogTitle>Editar Ingrediente</DialogTitle>
         </DialogHeader>
 
         <IngredientForm
@@ -381,7 +404,7 @@ function DeleteIngredientDialog({
   const onDelete = () => {
     mutate(id, {
       onSuccess: () => {
-        toast({ title: "Success", description: "Ingredient deleted" });
+        toast({ title: "Éxito", description: "Ingrediente eliminado" });
       },
       onError: (err: Error) => {
         toast({
@@ -405,23 +428,22 @@ function DeleteIngredientDialog({
         </Button>
       </AlertDialogTrigger>
 
-      <AlertDialogContent>
+      <AlertDialogContent className="w-[calc(100vw-2rem)] max-w-md">
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete {name}?</AlertDialogTitle>
+          <AlertDialogTitle>Eliminar {name}?</AlertDialogTitle>
           <AlertDialogDescription>
-            Esta acción no se puede deshacer.
-            Eliminará permanentemente el ingrediente.
+            Esta acción no se puede deshacer. Eliminará permanentemente el ingrediente.
             Cualquier receta que lo use deberá actualizarse.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+        <AlertDialogFooter className="flex-col-reverse sm:flex-row">
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction
             onClick={onDelete}
             disabled={isPending}
             className="bg-destructive hover:bg-destructive/90"
           >
-            {isPending ? "Deleting..." : "Delete"}
+            {isPending ? "Eliminando..." : "Eliminar"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -9,6 +9,7 @@ import Dashboard from "@/pages/Dashboard";
 import Ingredients from "@/pages/Ingredients";
 import Recipes from "@/pages/Recipes";
 import RecipeDetail from "@/pages/RecipeDetail";
+import TenantSettings from "@/pages/TenantSettings";
 
 function Router() {
   return (
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/:tenant/ingredients" component={Ingredients} />
       <Route path="/:tenant/recipes" component={Recipes} />
       <Route path="/:tenant/recipes/:id" component={RecipeDetail} />
+      <Route path="/:tenant/settings" component={TenantSettings} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -54,7 +54,7 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="border-t mb-4 px-2">
+      <div className="border-t pt-4 pb-4 px-2">
         <p className="text-xs text-muted-foreground">
           &copy; {new Date().getFullYear()} RecipeCost App by Patuka Technologies.
         </p>

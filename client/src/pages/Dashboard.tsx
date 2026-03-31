@@ -237,7 +237,7 @@ export default function Dashboard() {
     <Shell>
       <div className="flex flex-col gap-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight font-display mb-2">Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight font-display mb-2">Recipe Cost</h1>
           <p className="text-muted-foreground">Resumen de los costos e inventario de su cocina.</p>
         </div>
 

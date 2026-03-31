@@ -1,17 +1,25 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { ChefHat, LayoutDashboard, UtensilsCrossed } from "lucide-react";
+import {
+  ChefHat,
+  LayoutDashboard,
+  UtensilsCrossed,
+  Settings,
+} from "lucide-react";
+import { getTenantConfig } from "@/config/tenantConfig";
 
 export function Sidebar() {
   const [location] = useLocation();
 
-  // 👇 sacamos el tenant de la URL (/picania/...)
-  const tenant = location.split("/")[1] || "";
+  const tenant = location.split("/")[1] || "default";
+  const config = getTenantConfig(tenant);
+  const displayName = config.displayName || "Recipe Cost";
 
   const navigation = [
     { name: "Dashboard", href: `/${tenant}/dashboard`, icon: LayoutDashboard },
     { name: "Ingredientes", href: `/${tenant}/ingredients`, icon: ChefHat },
     { name: "Recetas", href: `/${tenant}/recipes`, icon: UtensilsCrossed },
+    { name: "Configuración", href: `/${tenant}/settings`, icon: Settings },
   ];
 
   return (
@@ -20,14 +28,18 @@ export function Sidebar() {
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
           <UtensilsCrossed className="h-6 w-6" />
         </div>
-        <span className="text-xl font-bold font-display tracking-tight text-foreground">
-          RecipeCost
+
+        <span className="min-w-0 truncate text-xl font-bold font-display tracking-tight text-foreground">
+          {displayName}
         </span>
       </div>
 
       <nav className="flex-1 space-y-1">
         {navigation.map((item) => {
-          const isActive = location === item.href;
+          const isActive =
+            location === item.href ||
+            (item.href !== `/${tenant}/dashboard` &&
+              location.startsWith(item.href));
 
           return (
             <Link key={item.name} href={item.href}>
@@ -47,7 +59,7 @@ export function Sidebar() {
                       : "text-muted-foreground group-hover:text-foreground"
                   )}
                 />
-                {item.name}
+                <span className="truncate">{item.name}</span>
               </div>
             </Link>
           );
@@ -56,7 +68,7 @@ export function Sidebar() {
 
       <div className="border-t pt-4 pb-4 px-2">
         <p className="text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} RecipeCost App by Patuka Technologies.
+          &copy; {new Date().getFullYear()} {displayName} App by Patuka Technologies.
         </p>
       </div>
     </div>

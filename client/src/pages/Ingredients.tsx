@@ -64,46 +64,44 @@ export default function IngredientsPage() {
   return (
     <Shell>
       <div className="flex flex-col gap-6 w-full min-w-0">
-        <div className="flex flex-col gap-4">
-          <div className="min-w-0">
-            <h1 className="text-3xl font-bold tracking-tight font-display mb-1">
-              Ingredientes
-            </h1>
-            <p className="text-muted-foreground">
-              Gestione sus materias primas y costos.
-            </p>
-          </div>
-
-          <div className="w-full">
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              type="button"
-              className="w-full h-12 px-4 flex items-center justify-center gap-2 whitespace-nowrap overflow-hidden bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              <Plus className="h-4 w-4 shrink-0" />
-              <span className="block truncate">Agregar Ingrediente</span>
-            </Button>
-          </div>
+        <div className="min-w-0">
+          <h1 className="text-3xl font-bold tracking-tight font-display mb-1">
+            Ingredientes
+          </h1>
+          <p className="text-muted-foreground">
+            Gestione sus materias primas y costos.
+          </p>
         </div>
 
-        <div className="flex items-center gap-2 w-full">
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="relative w-full md:max-w-[420px] min-w-0 order-2 md:order-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Buscar ingredientes..."
-              className="pl-9 bg-card border-border/50 w-full"
+              className="h-12 pl-10 bg-card border-border/50 w-full"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+
+          <div className="w-full md:w-auto order-1 md:order-2">
+            <Button
+              onClick={() => setIsCreateOpen(true)}
+              type="button"
+              className="w-full md:w-auto h-12 px-6 flex items-center justify-center gap-2 whitespace-nowrap bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4 shrink-0" />
+              <span>Agregar Ingrediente</span>
+            </Button>
+          </div>
         </div>
 
-        <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+        <div className="hidden md:block rounded-xl border bg-card shadow-sm overflow-hidden">
           <div className="w-full overflow-x-auto">
             <Table className="min-w-[760px]">
               <TableHeader className="bg-muted/30">
                 <TableRow>
-                  <TableHead className="w-[300px] font-semibold">Nombre</TableHead>
+                  <TableHead className="w-[280px] font-semibold">Nombre</TableHead>
                   <TableHead className="font-semibold">Unidad</TableHead>
                   <TableHead className="font-semibold">Tamaño del Paquete</TableHead>
                   <TableHead className="font-semibold">Precio del Paquete</TableHead>
@@ -140,6 +138,26 @@ export default function IngredientsPage() {
               </TableBody>
             </Table>
           </div>
+        </div>
+
+        <div className="md:hidden flex flex-col gap-3">
+          {isLoading ? (
+            <div className="rounded-xl border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
+              Cargando ingredientes...
+            </div>
+          ) : filteredIngredients.length === 0 ? (
+            <div className="rounded-xl border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
+              No se encontraron ingredientes. Añade uno para empezar.
+            </div>
+          ) : (
+            filteredIngredients.map((ingredient) => (
+              <IngredientMobileCard
+                key={ingredient.id}
+                ingredient={ingredient}
+                tenant={tenant}
+              />
+            ))
+          )}
         </div>
       </div>
 
@@ -188,6 +206,59 @@ function IngredientRow({
   );
 }
 
+function IngredientMobileCard({
+  ingredient,
+  tenant,
+}: {
+  ingredient: Ingredient;
+  tenant: string;
+}) {
+  const price = ingredient.price;
+  const size = ingredient.packageSize;
+  const cpu = size > 0 ? price / size : 0;
+
+  return (
+    <div className="rounded-xl border bg-card shadow-sm p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="font-semibold text-base break-words">{ingredient.name}</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            Unidad: {ingredient.unit}
+          </p>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1">
+          <EditIngredientDialog ingredient={ingredient} tenant={tenant} />
+          <DeleteIngredientDialog
+            id={ingredient.id}
+            name={ingredient.name}
+            tenant={tenant}
+          />
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-3 text-sm">
+        <div className="rounded-lg border bg-muted/20 p-3">
+          <p className="text-muted-foreground">Tamaño del paquete</p>
+          <p className="font-medium mt-1">{ingredient.packageSize}</p>
+        </div>
+
+        <div className="rounded-lg border bg-muted/20 p-3">
+          <p className="text-muted-foreground">Precio del paquete</p>
+          <p className="font-medium mt-1">${price.toFixed(2)}</p>
+        </div>
+
+        <div className="rounded-lg border bg-muted/20 p-3">
+          <p className="text-muted-foreground">Costo por unidad</p>
+          <p className="font-medium mt-1 break-all">
+            ${cpu.toFixed(4)} / {ingredient.unit}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function IngredientForm({
   defaultValues,
   onSubmit,
@@ -211,8 +282,8 @@ function IngredientForm({
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
       <div className="space-y-2">
-        <Label htmlFor="name">Name</Label>
-        <Input id="name" {...form.register("name")} placeholder="e.g. Flour" />
+        <Label htmlFor="name">Nombre</Label>
+        <Input id="name" {...form.register("name")} placeholder="Ej: Harina" />
         {form.formState.errors.name && (
           <p className="text-xs text-destructive">
             {form.formState.errors.name.message}
@@ -222,13 +293,14 @@ function IngredientForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="unit">Unit</Label>
+          <Label htmlFor="unit">Unidad</Label>
           <Input
             id="unit"
             {...form.register("unit")}
-            placeholder="e.g. kg, l, pcs"
+            placeholder="Ej: kg, l, un"
           />
         </div>
+
         <div className="space-y-2">
           <Label htmlFor="packageSize">Tamaño del Paquete</Label>
           <Input
@@ -236,7 +308,7 @@ function IngredientForm({
             type="number"
             step="0.01"
             {...form.register("packageSize", { valueAsNumber: true })}
-            placeholder="Amount in pkg"
+            placeholder="Cantidad del paquete"
           />
           {form.formState.errors.packageSize && (
             <p className="text-xs text-destructive">
@@ -253,7 +325,7 @@ function IngredientForm({
           type="number"
           step="0.01"
           {...form.register("price", { valueAsNumber: true })}
-          placeholder="Cost of package"
+          placeholder="Costo del paquete"
         />
         {form.formState.errors.price && (
           <p className="text-xs text-destructive">
@@ -266,9 +338,9 @@ function IngredientForm({
         <Button
           type="submit"
           disabled={isLoading}
-          className="btn-primary w-full"
+          className="btn-primary w-full h-11"
         >
-          {isLoading ? "Saving..." : "Save Ingredient"}
+          {isLoading ? "Guardando..." : "Guardar Ingrediente"}
         </Button>
       </DialogFooter>
     </form>
@@ -291,8 +363,8 @@ function CreateIngredientDialog({
     mutate(data, {
       onSuccess: () => {
         toast({
-          title: "Success",
-          description: "Ingredient created successfully",
+          title: "Éxito",
+          description: "Ingrediente creado correctamente",
         });
         onOpenChange(false);
       },
@@ -312,7 +384,7 @@ function CreateIngredientDialog({
         <DialogHeader>
           <DialogTitle>Agregar Ingrediente</DialogTitle>
           <DialogDescription>
-            Introduzca los detalles de un nuevo ingrediente crudo.
+            Introduzca los detalles de un nuevo ingrediente.
           </DialogDescription>
         </DialogHeader>
         <IngredientForm onSubmit={onSubmit} isLoading={isPending} />
@@ -338,8 +410,8 @@ function EditIngredientDialog({
       {
         onSuccess: () => {
           toast({
-            title: "Success",
-            description: "Ingredient updated successfully",
+            title: "Éxito",
+            description: "Ingrediente actualizado correctamente",
           });
           setOpen(false);
         },
@@ -360,7 +432,7 @@ function EditIngredientDialog({
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-primary"
+          className="h-9 w-9 text-muted-foreground hover:text-primary"
         >
           <Pencil className="h-4 w-4" />
         </Button>
@@ -368,7 +440,7 @@ function EditIngredientDialog({
 
       <DialogContent className="w-[calc(100vw-2rem)] max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Edit Ingredient</DialogTitle>
+          <DialogTitle>Editar Ingrediente</DialogTitle>
         </DialogHeader>
 
         <IngredientForm
@@ -401,7 +473,7 @@ function DeleteIngredientDialog({
   const onDelete = () => {
     mutate(id, {
       onSuccess: () => {
-        toast({ title: "Success", description: "Ingredient deleted" });
+        toast({ title: "Éxito", description: "Ingrediente eliminado" });
       },
       onError: (err: Error) => {
         toast({
@@ -419,7 +491,7 @@ function DeleteIngredientDialog({
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+          className="h-9 w-9 text-muted-foreground hover:text-destructive"
         >
           <Trash2 className="h-4 w-4" />
         </Button>
@@ -427,21 +499,20 @@ function DeleteIngredientDialog({
 
       <AlertDialogContent className="w-[calc(100vw-2rem)] max-w-md">
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete {name}?</AlertDialogTitle>
+          <AlertDialogTitle>¿Eliminar {name}?</AlertDialogTitle>
           <AlertDialogDescription>
-            Esta acción no se puede deshacer.
-            Eliminará permanentemente el ingrediente.
-            Cualquier receta que lo use deberá actualizarse.
+            Esta acción no se puede deshacer. Eliminará permanentemente el
+            ingrediente. Cualquier receta que lo use deberá actualizarse.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-col-reverse sm:flex-row">
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction
             onClick={onDelete}
             disabled={isPending}
             className="bg-destructive hover:bg-destructive/90"
           >
-            {isPending ? "Deleting..." : "Delete"}
+            {isPending ? "Eliminando..." : "Eliminar"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

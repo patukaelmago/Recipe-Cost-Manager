@@ -3,6 +3,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
+import { useLocation } from "wouter";
+import { getTenantConfig } from "@/config/tenantConfig";
 
 interface ShellProps {
   children: React.ReactNode;
@@ -10,6 +12,11 @@ interface ShellProps {
 
 export function Shell({ children }: ShellProps) {
   const [open, setOpen] = useState(false);
+  const [location] = useLocation();
+
+  const tenant = location.split("/")[1] || "default";
+  const config = getTenantConfig(tenant);
+  const displayName = config.displayName || "Recipe Cost";
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -31,7 +38,9 @@ export function Shell({ children }: ShellProps) {
               <Sidebar />
             </SheetContent>
           </Sheet>
-          <span className="ml-4 text-lg font-bold font-display">RecipeCost</span>
+          <span className="ml-4 text-lg font-bold font-display truncate">
+            {displayName}
+          </span>
         </div>
 
         {/* Main Content */}

@@ -233,6 +233,13 @@ export default function Dashboard() {
     { name: "Recetas", total: stats.totalRecipes },
   ];
 
+  const formatPrice = (value: number) => {
+    return new Intl.NumberFormat("es-AR", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
   return (
     <Shell>
       <div className="flex flex-col gap-8">
@@ -258,7 +265,7 @@ export default function Dashboard() {
           />
           <StatCard
             title="Costo Promedio"
-            value={`$${stats.avgCost.toFixed(2)}`}
+            value={`$${formatPrice(stats.avgCost)}`}
             icon={DollarSign}
             loading={isLoadingDashboard}
             description={`Basado en ${stats.activeCount} recetas costeadas`}

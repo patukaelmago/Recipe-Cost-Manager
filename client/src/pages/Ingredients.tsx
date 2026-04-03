@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/lib/utils";
 import { Shell } from "@/components/layout/Shell";
 import { formatPrice } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -189,9 +190,9 @@ function IngredientRow({
       </TableCell>
       <TableCell>{ingredient.unit}</TableCell>
       <TableCell>{ingredient.packageSize}</TableCell>
-      <TableCell>${price.toFixed(2)}</TableCell>
+      <TableCell>${formatCurrency(price)}</TableCell>
       <TableCell className="font-mono text-xs whitespace-nowrap">
-        ${cpu.toFixed(4)} / {ingredient.unit}
+      ${formatCurrency(cpu)} / {ingredient.unit}
       </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-2">
@@ -246,13 +247,13 @@ function IngredientMobileCard({
 
         <div className="rounded-lg border bg-muted/20 p-3">
           <p className="text-muted-foreground">Precio del paquete</p>
-          <p className="font-medium mt-1">${price.toFixed(2)}</p>
+          <p className="font-medium mt-1">${formatCurrency(price)}</p>
         </div>
 
         <div className="rounded-lg border bg-muted/20 p-3">
           <p className="text-muted-foreground">Costo por unidad</p>
           <p className="font-medium mt-1 break-all">
-            ${cpu.toFixed(4)} / {ingredient.unit}
+          ${formatCurrency(cpu)} / {ingredient.unit}
           </p>
         </div>
       </div>

@@ -13,7 +13,7 @@ interface ShellProps {
 export function Shell({ children }: ShellProps) {
   const [open, setOpen] = useState(false);
   const [location] = useLocation();
-  const [displayName, setDisplayName] = useState("Recipe Cost");
+  const [displayName, setDisplayName] = useState<string | null>(null);
 
   const tenant = location.split("/")[1] || "default";
 
@@ -23,7 +23,7 @@ export function Shell({ children }: ShellProps) {
     const loadTenantConfig = async () => {
       const config = await getTenantConfig(tenant);
       if (!mounted) return;
-      setDisplayName(config.displayName || "Recipe Cost");
+      setDisplayName(config?.displayName || null);
     };
 
     loadTenantConfig();
@@ -55,7 +55,7 @@ export function Shell({ children }: ShellProps) {
           </Sheet>
 
           <span className="ml-4 text-lg font-bold font-display truncate">
-            {displayName}
+            {displayName ?? ""}
           </span>
         </div>
 

@@ -11,7 +11,7 @@ import { getTenantConfig } from "@/config/tenantConfig";
 
 export function Sidebar() {
   const [location] = useLocation();
-  const [displayName, setDisplayName] = useState("Recipe Cost");
+  const [displayName, setDisplayName] = useState<string | null>(null);
 
   const tenant = location.split("/")[1] || "default";
 
@@ -21,7 +21,7 @@ export function Sidebar() {
     const loadTenantConfig = async () => {
       const config = await getTenantConfig(tenant);
       if (!mounted) return;
-      setDisplayName(config.displayName || "Recipe Cost");
+      setDisplayName(config?.displayName || null);
     };
 
     loadTenantConfig();
@@ -46,7 +46,7 @@ export function Sidebar() {
         </div>
 
         <span className="min-w-0 truncate text-xl font-bold font-display tracking-tight text-foreground">
-          {displayName}
+          {displayName ?? ""}
         </span>
       </div>
 
@@ -84,7 +84,7 @@ export function Sidebar() {
 
       <div className="border-t pt-4 pb-4 px-2">
         <p className="text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} {displayName} App by Patuka Technologies.
+          &copy; {new Date().getFullYear()} {displayName ?? ""} App by Patuka Technologies.
         </p>
       </div>
     </div>

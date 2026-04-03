@@ -10,25 +10,31 @@ export default function TenantSettings() {
   const tenant = location.split("/")[1] || "default";
 
   const [name, setName] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       const config = await getTenantConfig(tenant);
       setName(config?.displayName || "");
+      setLoading(false);
     };
-  
+
     load();
   }, [tenant]);
 
-  const handleSave = () => {
-    setTenantConfig(tenant, { displayName: name.trim() });
-    window.location.reload();
-  };
+  if (loading) return null; // 🔥 CLAVE: evita el flash
 
   return (
     <Shell>
       <div className="flex min-h-[70vh] items-center justify-center px-4">
-        <div className="w-full max-w-md rounded-2xl border bg-card shadow-sm">
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            await setTenantConfig(tenant, { displayName: name.trim() });
+            window.location.reload();
+          }}
+          className="w-full max-w-md rounded-2xl border bg-card shadow-sm"
+        >
           <div className="border-b px-6 py-4">
             <h1 className="text-xl font-bold font-display">Configuración</h1>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -47,11 +53,11 @@ export default function TenantSettings() {
               />
             </div>
 
-            <Button onClick={handleSave} className="w-full h-11">
+            <Button type="submit" className="w-full h-11">
               Guardar
             </Button>
           </div>
-        </div>
+        </form>
       </div>
     </Shell>
   );

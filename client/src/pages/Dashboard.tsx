@@ -1,4 +1,5 @@
 import { Shell } from "@/components/layout/Shell";
+import { formatPrice } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChefHat, TrendingUp, UtensilsCrossed, DollarSign } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -244,7 +245,7 @@ export default function Dashboard() {
     <Shell>
       <div className="flex flex-col gap-8">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight font-display mb-2">Recipe Cost</h2>
+          <h2 className="text-3xl font-bold tracking-tight font-display mb-2">Dashboard</h2>
           <p className="text-muted-foreground">Resumen de los costos e inventario de su cocina.</p>
         </div>
 

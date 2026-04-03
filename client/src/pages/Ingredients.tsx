@@ -1,4 +1,5 @@
 import { Shell } from "@/components/layout/Shell";
+import { formatPrice } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import {
   Table,

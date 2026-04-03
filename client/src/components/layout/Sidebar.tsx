@@ -6,14 +6,30 @@ import {
   UtensilsCrossed,
   Settings,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { getTenantConfig } from "@/config/tenantConfig";
 
 export function Sidebar() {
   const [location] = useLocation();
+  const [displayName, setDisplayName] = useState("Recipe Cost");
 
   const tenant = location.split("/")[1] || "default";
-  const config = getTenantConfig(tenant);
-  const displayName = config.displayName || "Recipe Cost";
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadTenantConfig = async () => {
+      const config = await getTenantConfig(tenant);
+      if (!mounted) return;
+      setDisplayName(config.displayName || "Recipe Cost");
+    };
+
+    loadTenantConfig();
+
+    return () => {
+      mounted = false;
+    };
+  }, [tenant]);
 
   const navigation = [
     { name: "Dashboard", href: `/${tenant}/dashboard`, icon: LayoutDashboard },

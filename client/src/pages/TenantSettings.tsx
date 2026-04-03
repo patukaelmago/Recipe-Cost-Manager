@@ -12,8 +12,12 @@ export default function TenantSettings() {
   const [name, setName] = useState("");
 
   useEffect(() => {
-    const config = getTenantConfig(tenant);
-    setName(config.displayName || "");
+    const load = async () => {
+      const config = await getTenantConfig(tenant);
+      setName(config?.displayName || "");
+    };
+  
+    load();
   }, [tenant]);
 
   const handleSave = () => {

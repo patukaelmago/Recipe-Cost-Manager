@@ -1,34 +1,36 @@
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
 export type TenantConfig = {
-    displayName?: string;
-  };
-  
-  const STORAGE_KEY = "tenant_config";
-  
-  export function getTenantConfig(tenant: string): TenantConfig {
-    if (typeof window === "undefined") return {};
-  
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return {};
-      const all = JSON.parse(raw);
-      return all[tenant] || {};
-    } catch {
-      return {};
-    }
+  displayName?: string;
+};
+
+export async function getTenantConfig(tenant: string): Promise<TenantConfig> {
+  try {
+    const ref = doc(db, "tenants", tenant);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) return {};
+
+    return snap.data() as TenantConfig;
+  } catch {
+    return {};
   }
-  
-  export function setTenantConfig(tenant: string, config: TenantConfig) {
-    if (typeof window === "undefined") return;
-  
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const all = raw ? JSON.parse(raw) : {};
-  
-      all[tenant] = {
-        ...all[tenant],
+}
+
+export async function setTenantConfig(
+  tenant: string,
+  config: TenantConfig
+) {
+  try {
+    const ref = doc(db, "tenants", tenant);
+
+    await setDoc(
+      ref,
+      {
         ...config,
-      };
-  
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
-    } catch {}
-  }
+      },
+      { merge: true }
+    );
+  } catch {}
+}

@@ -15,6 +15,11 @@ export function Shell({ children }: ShellProps) {
   const [location] = useLocation();
   const [displayName, setDisplayName] = useState<string | null>(null);
 
+  // 🔥 FIX REAL
+  if (location.startsWith("/select-tenant")) {
+    return <>{children}</>;
+  }
+
   const tenant = location.split("/")[1] || "default";
 
   useEffect(() => {

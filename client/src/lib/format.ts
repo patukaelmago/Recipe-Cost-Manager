@@ -1,6 +1,6 @@
 export const formatPrice = (value: number) => {
-    return new Intl.NumberFormat("es-AR", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
+  return new Intl.NumberFormat("es-AR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+};

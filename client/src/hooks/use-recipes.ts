@@ -137,8 +137,7 @@ export function useRecipes(tenantId: string = DEFAULT_TENANT_ID) {
             const data = d.data() as any;
             const ingredientId = String(data?.ingredientId ?? "");
             const ingredient =
-              ingredientsMap.get(ingredientId) ??
-              {
+              ingredientsMap.get(ingredientId) ?? {
                 id: ingredientId,
                 name: "Unknown",
                 unit: "u",
@@ -186,6 +185,8 @@ export function useRecentRecipes(
         ingredients: [],
       }));
     },
+    staleTime: 0,
+    refetchOnMount: true,
   });
 }
 
@@ -225,40 +226,49 @@ export function useRecipe(id: string, tenantId: string = DEFAULT_TENANT_ID) {
           const safeIngredientId = String(it.ingredientId || "").trim();
 
           if (!safeIngredientId) {
-            const fallback: Ingredient = {
-              id: "",
-              name: "Unknown",
-              unit: "u",
-              packageSize: 1,
-              price: 0,
+            return {
+              item: it,
+              ingredient: {
+                id: "",
+                name: "Unknown",
+                unit: "u",
+                packageSize: 1,
+                price: 0,
+              },
             };
-            return { item: it, ingredient: fallback };
           }
 
           const ingRef = tenantIngredientDoc(safeIngredientId, tenantId);
           const ingSnap = await getDoc(ingRef);
 
           if (!ingSnap.exists()) {
-            const fallback: Ingredient = {
-              id: safeIngredientId,
-              name: "Unknown",
-              unit: "u",
-              packageSize: 1,
-              price: 0,
+            return {
+              item: it,
+              ingredient: {
+                id: safeIngredientId,
+                name: "Unknown",
+                unit: "u",
+                packageSize: 1,
+                price: 0,
+              },
             };
-            return { item: it, ingredient: fallback };
           }
 
-          return { item: it, ingredient: mapIngredient(ingSnap.id, ingSnap.data()) };
+          return {
+            item: it,
+            ingredient: mapIngredient(ingSnap.id, ingSnap.data()),
+          };
         })
       );
 
-      const fullItems: RecipeIngredientItem[] = ingredientDocs.map(({ item, ingredient }) => ({
-        id: item.id,
-        ingredientId: String(item.ingredientId ?? ""),
-        quantity: Number(item.quantity ?? 0),
-        ingredient,
-      }));
+      const fullItems: RecipeIngredientItem[] = ingredientDocs.map(
+        ({ item, ingredient }) => ({
+          id: item.id,
+          ingredientId: String(item.ingredientId ?? ""),
+          quantity: Number(item.quantity ?? 0),
+          ingredient,
+        })
+      );
 
       return { ...base, ingredients: fullItems };
     },
@@ -338,18 +348,25 @@ export function useAddRecipeIngredient(tenantId: string = DEFAULT_TENANT_ID) {
     }) => {
       const recipeId = String(data.recipeId || "").trim();
       const ingredientId = String(data.ingredientId || "").trim();
-      const qty = typeof data.quantity === "string" ? Number(data.quantity) : data.quantity;
+      const qty =
+        typeof data.quantity === "string"
+          ? Number(data.quantity)
+          : data.quantity;
 
       if (!recipeId) throw new Error("recipeId missing");
       if (!ingredientId) throw new Error("ingredientId missing");
-      if (!Number.isFinite(qty) || qty <= 0) throw new Error("quantity invalid");
+      if (!Number.isFinite(qty) || qty <= 0)
+        throw new Error("quantity invalid");
 
-      const ref = await addDoc(tenantRecipeItemsCollection(recipeId, tenantId), {
-        ingredientId,
-        quantity: qty,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+      const ref = await addDoc(
+        tenantRecipeItemsCollection(recipeId, tenantId),
+        {
+          ingredientId,
+          quantity: qty,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }
+      );
 
       await updateDoc(tenantRecipeDoc(recipeId, tenantId), {
         updatedAt: serverTimestamp(),
@@ -358,9 +375,13 @@ export function useAddRecipeIngredient(tenantId: string = DEFAULT_TENANT_ID) {
       return ref.id;
     },
     onSuccess: async (_id, vars) => {
-      await qc.invalidateQueries({ queryKey: ["recipe", tenantId, vars.recipeId] });
+      await qc.invalidateQueries({
+        queryKey: ["recipe", tenantId, vars.recipeId],
+      });
       await qc.invalidateQueries({ queryKey: ["recipes", tenantId] });
-      await qc.invalidateQueries({ queryKey: ["recent-recipes", tenantId] });
+      await qc.invalidateQueries({
+        queryKey: ["recent-recipes", tenantId],
+      });
     },
   });
 }
@@ -386,9 +407,13 @@ export function useRemoveRecipeIngredient(tenantId: string = DEFAULT_TENANT_ID) 
       return itemId;
     },
     onSuccess: async (_id, vars) => {
-      await qc.invalidateQueries({ queryKey: ["recipe", tenantId, vars.recipeId] });
+      await qc.invalidateQueries({
+        queryKey: ["recipe", tenantId, vars.recipeId],
+      });
       await qc.invalidateQueries({ queryKey: ["recipes", tenantId] });
-      await qc.invalidateQueries({ queryKey: ["recent-recipes", tenantId] });
+      await qc.invalidateQueries({
+        queryKey: ["recent-recipes", tenantId],
+      });
     },
   });
 }

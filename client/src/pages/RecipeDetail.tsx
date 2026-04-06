@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/lib/utils";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { formatPrice } from "@/lib/format";
 import { db } from "@/lib/firebase";
@@ -242,20 +243,30 @@ export default function RecipeDetail() {
                   Cantidad {editingItem?.ingredient?.unit ? `(${editingItem.ingredient.unit})` : ""}
                 </Label>
                 <Input
-                  id="edit-quantity"
-                  type="number"
-                  step="any"
-                  value={editQuantity}
-                  onChange={(e) => setEditQuantity(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleSaveQuantity();
-                    }
-                  }}
-                  placeholder="0.00"
-                  autoFocus
-                />
+  id="edit-quantity"
+  type="number"
+  min={0}
+  step="any"
+  value={editQuantity}
+  onChange={(e) => {
+    const val = e.target.value;
+
+    if (val.startsWith("-")) {
+      setEditQuantity("0");
+      return;
+    }
+
+    setEditQuantity(val);
+  }}
+  onKeyDown={(e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSaveQuantity();
+    }
+  }}
+  placeholder="0.00"
+  autoFocus
+/>
               </div>
             </div>
 
@@ -294,6 +305,7 @@ export default function RecipeDetail() {
               <Input
                 id="pricing-percentage"
                 type="number"
+                min={0}
                 step="any"
                 value={pricingInput}
                 onChange={(e) => setPricingInput(e.target.value)}
@@ -394,10 +406,10 @@ export default function RecipeDetail() {
                                 {item.quantity} {item.ingredient.unit}
                               </TableCell>
                               <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
-                                ${pricePerUnit.toFixed(4)}/{item.ingredient.unit}
+                              ${formatCurrency(pricePerUnit)} / {item.ingredient.unit}
                               </TableCell>
                               <TableCell className="text-right font-mono font-medium whitespace-nowrap">
-                                ${totalCost.toFixed(2)}
+                              ${formatCurrency(totalCost)}
                               </TableCell>
                               <TableCell>
                                 <div className="flex gap-2 justify-end">
@@ -444,7 +456,7 @@ export default function RecipeDetail() {
                   <div className="flex justify-between items-end border-b pb-4 border-primary/10 gap-4">
                     <span className="text-muted-foreground font-medium">Costo Total</span>
                     <span className="text-3xl sm:text-4xl font-bold text-foreground font-display text-right break-all">
-                      ${ingredientsCost.toFixed(2)}
+                    ${formatCurrency(ingredientsCost)}
                     </span>
                   </div>
 
@@ -475,7 +487,7 @@ export default function RecipeDetail() {
                       </div>
 
                       <span className="font-semibold text-sm text-primary text-right">
-                        ${suggestedPrice.toFixed(2)}
+                      ${formatCurrency(suggestedPrice)}
                       </span>
                     </Button>
                   </div>

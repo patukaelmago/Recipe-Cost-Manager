@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/lib/utils";
 import { Shell } from "@/components/layout/Shell";
 import { formatPrice } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -184,14 +185,14 @@ function RecipeCard({
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Costo</span>
             <span className="font-medium text-foreground">
-              ${cost.toFixed(2)}
+            ${formatCurrency(cost)}
             </span>
           </div>
 
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Precio</span>
             <span className="font-semibold text-primary">
-              ${price.toFixed(2)}{" "}
+            ${formatCurrency(price)}{" "}
               <span className="text-muted-foreground font-normal">
                 ({margin.toFixed(0)}%)
               </span>

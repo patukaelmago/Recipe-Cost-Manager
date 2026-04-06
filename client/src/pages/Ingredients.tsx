@@ -191,8 +191,8 @@ function IngredientRow({
       <TableCell>{ingredient.unit}</TableCell>
       <TableCell>{ingredient.packageSize}</TableCell>
       <TableCell>${formatCurrency(price)}</TableCell>
-      <TableCell className="font-mono text-xs whitespace-nowrap">
-      ${formatCurrency(cpu)} / {ingredient.unit}
+      <TableCell >
+        ${formatCurrency(cpu)} / {ingredient.unit}
       </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-2">
@@ -253,7 +253,7 @@ function IngredientMobileCard({
         <div className="rounded-lg border bg-muted/20 p-3">
           <p className="text-muted-foreground">Costo por unidad</p>
           <p className="font-medium mt-1 break-all">
-          ${formatCurrency(cpu)} / {ingredient.unit}
+            ${formatCurrency(cpu)} / {ingredient.unit}
           </p>
         </div>
       </div>
@@ -309,7 +309,15 @@ function IngredientForm({
             id="packageSize"
             type="number"
             step="0.01"
-            {...form.register("packageSize", { valueAsNumber: true })}
+            min={0}
+            {...form.register("packageSize", {
+              valueAsNumber: true,
+              setValueAs: (v) => {
+                if (v === "" || v === null || v === undefined) return 0;
+                const parsed = parseFloat(v.toString().replace(",", "."));
+                return parsed < 0 ? 0 : parsed;
+              },
+            })}
             placeholder="Cantidad del paquete"
           />
           {form.formState.errors.packageSize && (
@@ -325,8 +333,22 @@ function IngredientForm({
         <Input
           id="price"
           type="number"
+          min={0}
           step="0.01"
-          {...form.register("price", { valueAsNumber: true })}
+          {...form.register("price", {
+            valueAsNumber: true,
+            setValueAs: (v) => {
+              if (v === "" || v === null || v === undefined) return 0;
+              const parsed = parseFloat(v.toString().replace(",", "."));
+              return parsed < 0 ? 0 : parsed;
+            },
+          })}
+          onChange={(e) => {
+            if (e.target.value.startsWith("-")) {
+              e.target.value = "0";
+              form.setValue("price", 0);
+            }
+          }}
           placeholder="Costo del paquete"
         />
         {form.formState.errors.price && (

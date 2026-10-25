@@ -11,6 +11,7 @@ import Ingredients from "@/pages/Ingredients";
 import Recipes from "@/pages/Recipes";
 import RecipeDetail from "@/pages/RecipeDetail";
 import TenantSettings from "@/pages/TenantSettings";
+import { InstallApp } from "@/components/InstallApp";
 
 
 function Router() {
@@ -35,6 +36,7 @@ function App() {
       <TooltipProvider>
         <Toaster />
         <Router />
+        <InstallApp />
       </TooltipProvider>
     </QueryClientProvider>
   );

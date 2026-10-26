@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useLocation } from "wouter";
 import {
@@ -26,20 +26,16 @@ export default function LoginPage() {
         return;
       }
 
-      const q = query(
-        collection(db, "users"),
-        where("email", "==", email)
-      );
+      // Firestore permite leer el perfil propio por UID, no listar usuarios.
+      const snap = await getDoc(doc(db, "users", result.user.uid));
 
-      const snap = await getDocs(q);
-
-      if (snap.empty) {
+      if (!snap.exists()) {
         alert("No autorizado");
         setLoading(false);
         return;
       }
 
-      const user = snap.docs[0].data();
+      const user = snap.data();
 
       if (user.role === "superadmin") {
         setLocation("/select-tenant");

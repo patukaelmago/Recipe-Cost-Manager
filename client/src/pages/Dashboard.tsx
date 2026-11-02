@@ -1,3 +1,4 @@
+import { isDemo, demoIngredients, demoRecipes, demoSettings } from "@/lib/demo";
 import { Shell } from "@/components/layout/Shell";
 import { formatPrice } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,7 +61,8 @@ type DashboardStats = {
 
 export default function Dashboard() {
   const [, params] = useRoute("/:tenant/dashboard");
-  const tenant = params?.tenant ?? "picania";
+  const [, rootParams] = useRoute("/:tenant");
+  const tenant = params?.tenant ?? rootParams?.tenant ?? "picania";
 
   const [tenantMargin, setTenantMargin] = useState(50);
   const [stats, setStats] = useState<DashboardStats>({
@@ -80,6 +82,7 @@ export default function Dashboard() {
       try {
         setIsLoadingTenantConfig(true);
 
+        if (isDemo(tenant)) { setTenantMargin(demoSettings().pricingPercentage); return; }
         const tenantRef = doc(db, "tenants", tenant);
         const snap = await getDoc(tenantRef);
 
@@ -104,6 +107,18 @@ export default function Dashboard() {
       try {
         setIsLoadingDashboard(true);
 
+        if (isDemo(tenant)) {
+          const recipes = demoRecipes();
+          const active = recipes.filter(r => r.ingredients.length > 0);
+          const cost = active.reduce((sum, recipe) => sum + recipe.ingredients.reduce((total, item) =>
+            total + (item.ingredient.packageSize > 0 ? item.ingredient.price / item.ingredient.packageSize * item.quantity : 0), 0), 0);
+          const margin = active.reduce((sum, recipe) => sum + (recipe.pricingPercentage ?? tenantMargin), 0);
+          setStats({ totalIngredients: demoIngredients().length, totalRecipes: recipes.length,
+            avgCost: active.length ? cost / active.length : 0,
+            avgMargin: active.length ? margin / active.length : 0,
+            activeCount: active.length, recentRecipes: recipes.slice(0, 5) });
+          return;
+        }
         const ingredientsRef = collection(db, "tenants", tenant, "ingredients");
         const recipesRef = collection(db, "tenants", tenant, "recipes");
 

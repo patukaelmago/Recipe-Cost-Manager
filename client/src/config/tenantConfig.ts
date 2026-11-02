@@ -1,3 +1,4 @@
+import { isDemo, demoSettings, updateDemoSettings } from "@/lib/demo";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -6,6 +7,7 @@ export type TenantConfig = {
 };
 
 export async function getTenantConfig(tenant: string): Promise<TenantConfig> {
+  if (isDemo(tenant)) return demoSettings();
   try {
     const ref = doc(db, "tenants", tenant);
     const snap = await getDoc(ref);
@@ -22,6 +24,7 @@ export async function setTenantConfig(
   tenant: string,
   config: TenantConfig
 ) {
+  if (isDemo(tenant)) { updateDemoSettings(config); return; }
   try {
     const ref = doc(db, "tenants", tenant);
 

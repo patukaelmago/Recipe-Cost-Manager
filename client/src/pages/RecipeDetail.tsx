@@ -1,3 +1,4 @@
+import { isDemo, updateDemoQuantity, saveDemoRecipe } from "@/lib/demo";
 import { formatCurrency } from "@/lib/utils";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { formatPrice } from "@/lib/format";
@@ -110,20 +111,24 @@ export default function RecipeDetail() {
     try {
       setIsSavingQuantity(true);
 
-      const itemRef = doc(
-        db,
-        "tenants",
-        tenant,
-        "recipes",
-        recipeId,
-        "ingredients",
-        editingItem.id
-      );
+      if (isDemo(tenant)) {
+        updateDemoQuantity(recipeId, editingItem.id, quantityNumber);
+      } else {
+        const itemRef = doc(
+          db,
+          "tenants",
+          tenant,
+          "recipes",
+          recipeId,
+          "ingredients",
+          editingItem.id
+        );
 
-      await updateDoc(itemRef, {
-        quantity: quantityNumber,
-        updatedAt: serverTimestamp(),
+        await updateDoc(itemRef, {
+          quantity: quantityNumber,
+          updatedAt: serverTimestamp(),
       });
+      }
 
       queryClient.setQueryData(["recipe", tenant, recipeId], (oldData: any) => {
         if (!oldData) return oldData;
@@ -138,6 +143,10 @@ export default function RecipeDetail() {
         };
       });
 
+      if (isDemo(tenant)) {
+        await queryClient.invalidateQueries({ queryKey: ["recipes", tenant] });
+        await queryClient.invalidateQueries({ queryKey: ["recent-recipes", tenant] });
+      }
       toast({
         title: "Actualizado",
         description: "Guardado correctamente",
@@ -176,18 +185,26 @@ export default function RecipeDetail() {
 
     try {
       setIsUpdatingRecipe(true);
-      const recipeRef = doc(db, "tenants", tenant, "recipes", recipeId);
+      if (isDemo(tenant)) {
+        saveDemoRecipe({ pricingPercentage: value }, recipeId);
+      } else {
+        const recipeRef = doc(db, "tenants", tenant, "recipes", recipeId);
 
-      await updateDoc(recipeRef, {
-        pricingPercentage: value,
-        updatedAt: serverTimestamp(),
+        await updateDoc(recipeRef, {
+          pricingPercentage: value,
+          updatedAt: serverTimestamp(),
       });
+      }
 
       queryClient.setQueryData(["recipe", tenant, recipeId], (oldData: any) => ({
         ...oldData,
         pricingPercentage: value,
       }));
 
+      if (isDemo(tenant)) {
+        await queryClient.invalidateQueries({ queryKey: ["recipes", tenant] });
+        await queryClient.invalidateQueries({ queryKey: ["recent-recipes", tenant] });
+      }
       toast({
         title: "Actualizado",
         description: "Margen de esta receta guardado correctamente",

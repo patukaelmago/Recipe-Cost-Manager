@@ -1,3 +1,4 @@
+import { isDemo, demoSettings, updateDemoSettings } from "@/lib/demo";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { db } from "@/lib/firebase";
@@ -21,6 +22,7 @@ export function useTenantSettings(tenantId: string) {
       // Si no hay ID, no intentamos buscar nada
       if (!tenantId) throw new Error("Tenant ID es requerido");
 
+      if (isDemo(tenantId)) return demoSettings();
       const snap = await getDoc(tenantDoc(tenantId));
 
       if (!snap.exists()) {
@@ -46,6 +48,7 @@ export function useUpdateTenantSettings(tenantId: string) {
     mutationFn: async (data: Partial<TenantSettings>) => {
       if (!tenantId) throw new Error("Tenant ID es requerido para actualizar");
 
+      if (isDemo(tenantId)) { updateDemoSettings(data); return; }
       await setDoc(
         tenantDoc(tenantId),
         {

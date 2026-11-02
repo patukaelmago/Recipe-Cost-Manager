@@ -1,3 +1,6 @@
+import { isDemo, resetDemo } from "@/lib/demo";
+import { queryClient } from "@/lib/queryClient";
+import { Button } from "@/components/ui/button";
 import { Sidebar } from "./Sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Menu } from "lucide-react";
@@ -64,6 +67,17 @@ export function Shell({ children }: ShellProps) {
           </span>
         </div>
 
+        {isDemo(tenant) && (
+          <div className="flex flex-wrap items-center gap-3 border-b bg-primary/5 px-4 py-3 text-sm">
+            <p className="flex-1 min-w-[180px]"><strong>Modo demo.</strong> Probá libremente. Cada nuevo ingreso recupera los ejemplos originales.</p>
+            <Button variant="outline" size="sm" onClick={() => {
+              resetDemo();
+              queryClient.removeQueries({ predicate: query => query.queryKey[1] === "demo" });
+              window.location.assign("/demo/dashboard");
+            }}>Reiniciar demo</Button>
+            <Button variant="ghost" size="sm" onClick={() => window.location.assign("/")}>Salir</Button>
+          </div>
+        )}
         {/* Main Content */}
         <ScrollArea className="flex-1">
           <main className="container mx-auto max-w-7xl p-6 lg:p-8">

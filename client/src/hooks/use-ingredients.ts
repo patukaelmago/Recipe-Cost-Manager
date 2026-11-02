@@ -1,3 +1,4 @@
+import { isDemo, demoIngredients, saveDemoIngredient, deleteDemoIngredient } from "@/lib/demo";
 // client/src/hooks/use-ingredients.ts
 import {
   collection,
@@ -53,6 +54,7 @@ export function useIngredients(tenantId: string = DEFAULT_TENANT_ID) {
   return useQuery({
     queryKey: ["ingredients", tenantId],
     queryFn: async (): Promise<Ingredient[]> => {
+      if (isDemo(tenantId)) return demoIngredients();
       const q = query(tenantIngredientsCollection(tenantId), orderBy("name"));
       const snap = await getDocs(q);
       return snap.docs.map((d) => mapIngredient(d.id, d.data()));
@@ -65,6 +67,7 @@ export function useIngredient(id: string, tenantId: string = DEFAULT_TENANT_ID) 
     queryKey: ["ingredients", tenantId, id],
     enabled: !!id,
     queryFn: async (): Promise<Ingredient | null> => {
+      if (isDemo(tenantId)) return demoIngredients().find(item => item.id === id) ?? null;
       const ref = tenantIngredientDoc(id, tenantId);
       const snap = await getDoc(ref);
       if (!snap.exists()) return null;
@@ -79,6 +82,7 @@ export function useCreateIngredient(tenantId: string = DEFAULT_TENANT_ID) {
   return useMutation({
     mutationFn: async (raw: InsertIngredient) => {
       const data = parseIngredient(raw);
+      if (isDemo(tenantId)) return saveDemoIngredient(data);
 
       const ref = await addDoc(tenantIngredientsCollection(tenantId), {
         ...data,
@@ -103,6 +107,7 @@ export function useUpdateIngredient(tenantId: string = DEFAULT_TENANT_ID) {
     mutationFn: async (payload: { id: string } & InsertIngredient) => {
       const { id, ...rest } = payload;
       const data = parseIngredient(rest);
+      if (isDemo(tenantId)) return saveDemoIngredient(data, id);
 
       const ref = tenantIngredientDoc(id, tenantId);
       await updateDoc(ref, {
@@ -126,6 +131,7 @@ export function useDeleteIngredient(tenantId: string = DEFAULT_TENANT_ID) {
 
   return useMutation({
     mutationFn: async (id: string) => {
+      if (isDemo(tenantId)) { deleteDemoIngredient(id); return id; }
       const ref = tenantIngredientDoc(id, tenantId);
       await deleteDoc(ref);
       return id;

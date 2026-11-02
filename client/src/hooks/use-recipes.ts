@@ -1,3 +1,4 @@
+import { isDemo, demoRecipes, saveDemoRecipe, deleteDemoRecipe, addDemoRecipeIngredient, removeDemoRecipeIngredient } from "@/lib/demo";
 import {
   collection,
   doc,
@@ -111,6 +112,7 @@ export function useRecipes(tenantId: string = DEFAULT_TENANT_ID) {
   return useQuery({
     queryKey: ["recipes", tenantId],
     queryFn: async (): Promise<Recipe[]> => {
+      if (isDemo(tenantId)) return demoRecipes();
       const recipesQ = query(
         tenantRecipesCollection(tenantId),
         orderBy("updatedAt", "desc")
@@ -172,6 +174,7 @@ export function useRecentRecipes(
   return useQuery({
     queryKey: ["recent-recipes", tenantId, maxItems],
     queryFn: async (): Promise<Recipe[]> => {
+      if (isDemo(tenantId)) return demoRecipes().slice(0, maxItems);
       const recipesQ = query(
         tenantRecipesCollection(tenantId),
         orderBy("updatedAt", "desc"),
@@ -197,6 +200,7 @@ export function useRecipe(id: string, tenantId: string = DEFAULT_TENANT_ID) {
     queryFn: async (): Promise<Recipe | null> => {
       const cleanId = String(id || "").trim();
       if (!cleanId) return null;
+      if (isDemo(tenantId)) return demoRecipes().find(r => r.id === cleanId) ?? null;
 
       const ref = tenantRecipeDoc(cleanId, tenantId);
       const snap = await getDoc(ref);
@@ -281,6 +285,7 @@ export function useCreateRecipe(tenantId: string = DEFAULT_TENANT_ID) {
   return useMutation({
     mutationFn: async (raw: InsertRecipe) => {
       const data = parseRecipe(raw);
+      if (isDemo(tenantId)) return saveDemoRecipe(data);
 
       const ref = await addDoc(tenantRecipesCollection(tenantId), {
         ...data,
@@ -304,6 +309,7 @@ export function useUpdateRecipe(tenantId: string = DEFAULT_TENANT_ID) {
     mutationFn: async (payload: { id: string } & Partial<InsertRecipe>) => {
       const { id, ...rest } = payload;
       const safe = insertRecipeSchema.partial().parse(rest);
+      if (isDemo(tenantId)) return saveDemoRecipe(safe, id);
 
       const ref = tenantRecipeDoc(id, tenantId);
       await updateDoc(ref, {
@@ -326,6 +332,7 @@ export function useDeleteRecipe(tenantId: string = DEFAULT_TENANT_ID) {
 
   return useMutation({
     mutationFn: async (id: string) => {
+      if (isDemo(tenantId)) { deleteDemoRecipe(id); return id; }
       const ref = tenantRecipeDoc(id, tenantId);
       await deleteDoc(ref);
       return id;
@@ -357,6 +364,8 @@ export function useAddRecipeIngredient(tenantId: string = DEFAULT_TENANT_ID) {
       if (!ingredientId) throw new Error("ingredientId missing");
       if (!Number.isFinite(qty) || qty <= 0)
         throw new Error("quantity invalid");
+
+      if (isDemo(tenantId)) return addDemoRecipeIngredient(recipeId, ingredientId, qty);
 
       const ref = await addDoc(
         tenantRecipeItemsCollection(recipeId, tenantId),
@@ -396,6 +405,7 @@ export function useRemoveRecipeIngredient(tenantId: string = DEFAULT_TENANT_ID) 
 
       if (!recipeId) throw new Error("recipeId missing");
       if (!itemId) throw new Error("itemId missing");
+      if (isDemo(tenantId)) return removeDemoRecipeIngredient(recipeId, itemId);
 
       const ref = tenantRecipeItemDoc(recipeId, itemId, tenantId);
       await deleteDoc(ref);

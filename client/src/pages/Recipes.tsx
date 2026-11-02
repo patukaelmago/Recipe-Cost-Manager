@@ -1,4 +1,5 @@
 import { formatCurrency } from "@/lib/utils";
+import { Link, useLocation } from "wouter";
 import { Shell } from "@/components/layout/Shell";
 import { formatPrice } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,6 @@ import { useRecipes, useCreateRecipe } from "@/hooks/use-recipes";
 import { useTenantSettings } from "@/hooks/use-tenant-settings";
 import { Plus, Search, UtensilsCrossed, ArrowRight } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link, useRoute } from "wouter";
 import {
   Dialog,
   DialogContent,
@@ -33,8 +33,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Recipes() {
-  const [, params] = useRoute("/:tenant/recipes");
-  const tenant = params?.tenant ?? "picania";
+  const [location] = useLocation();
+  const tenant = location.split("/")[1];
 
   const { data: recipes, isLoading } = useRecipes(tenant);
   const { data: tenantSettings } = useTenantSettings(tenant);

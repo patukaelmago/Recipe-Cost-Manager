@@ -1,37 +1,101 @@
+"use client";
+
 import { useEffect, useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useLocation } from "wouter";
 import { onAuthStateChanged } from "firebase/auth";
 
 export default function SelectTenantPage() {
   const [tenants, setTenants] = useState<{ id: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(true);
   const [, setLocation] = useLocation();
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
+      // 🔥 IMPORTANTE: esperar resolución inicial
+      if (user === undefined) return;
+
       if (!user) {
         setLocation("/");
         return;
       }
 
       try {
-        const snap = await getDocs(collection(db, "tenants"));
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
 
-        const list = snap.docs.map((doc) => ({
-          id: doc.id,
-          name: doc.data().displayName || doc.id,
-        }));
+        if (!userSnap.exists()) {
+          alert("Usuario no configurado");
+          return;
+        }
 
-        setTenants(list);
+        const userData = userSnap.data() as any;
+
+        // 🔥 SUPERADMIN
+        if (userData.role === "superadmin") {
+          const snap = await getDocs(collection(db, "tenants"));
+
+          const list = snap.docs.map((doc) => ({
+            id: doc.id,
+            name: doc.data().displayName || doc.id,
+          }));
+
+          setTenants(list);
+          setLoading(false);
+          return;
+        }
+
+        // 🔥 CLIENTE
+        if (Array.isArray(userData.tenants)) {
+          const list = await Promise.all(
+            userData.tenants.map(async (tenantId: string) => {
+              const tenantRef = doc(db, "tenants", tenantId);
+              const tenantSnap = await getDoc(tenantRef);
+
+              return {
+                id: tenantId,
+                name:
+                  tenantSnap.exists()
+                    ? tenantSnap.data().displayName || tenantId
+                    : tenantId,
+              };
+            })
+          );
+
+          setTenants(list);
+          setLoading(false);
+          return;
+        }
+
+        alert("Usuario mal configurado");
+        setLoading(false);
       } catch (e) {
         console.error(e);
         alert("Error cargando tenants");
+        setLoading(false);
       }
     });
 
     return () => unsub();
   }, [setLocation]);
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          height: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#111",
+          color: "white",
+        }}
+      >
+        Cargando...
+      </div>
+    );
+  }
 
   return (
     <div

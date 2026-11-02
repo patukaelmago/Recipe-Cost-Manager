@@ -3,10 +3,10 @@ import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "./Sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Menu } from "lucide-react";
+import { Menu, UtensilsCrossed } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { getTenantConfig } from "@/config/tenantConfig";
 
 interface ShellProps {
@@ -18,7 +18,6 @@ export function Shell({ children }: ShellProps) {
   const [location] = useLocation();
   const [displayName, setDisplayName] = useState<string | null>(null);
 
-  // 🔥 FIX REAL
   if (location.startsWith("/select-tenant")) {
     return <>{children}</>;
   }
@@ -43,13 +42,11 @@ export function Shell({ children }: ShellProps) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {/* Desktop Sidebar */}
       <div className="hidden md:block">
         <Sidebar />
       </div>
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Mobile Header */}
         <div className="flex items-center border-b p-4 md:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
@@ -57,14 +54,23 @@ export function Shell({ children }: ShellProps) {
                 <Menu className="h-6 w-6" />
               </button>
             </SheetTrigger>
+
             <SheetContent side="left" className="p-0 border-r w-64">
               <Sidebar />
             </SheetContent>
           </Sheet>
 
-          <span className="ml-4 text-lg font-bold font-display truncate">
-            {displayName ?? ""}
-          </span>
+          <Link href={`/${tenant}/dashboard`}>
+            <div className="ml-4 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1 transition-colors hover:bg-secondary/70">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+                <UtensilsCrossed className="h-5 w-5" />
+              </div>
+
+              <span className="max-w-[180px] truncate text-lg font-bold font-display">
+                {displayName ?? ""}
+              </span>
+            </div>
+          </Link>
         </div>
 
         {isDemo(tenant) && (

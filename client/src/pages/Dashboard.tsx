@@ -1,6 +1,5 @@
 import { isDemo, demoIngredients, demoRecipes, demoSettings } from "@/lib/demo";
 import { Shell } from "@/components/layout/Shell";
-import { formatPrice } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChefHat, TrendingUp, UtensilsCrossed, DollarSign } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,7 +12,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { useRoute } from "wouter";
+import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import {
   BarChart,
@@ -60,9 +59,8 @@ type DashboardStats = {
 };
 
 export default function Dashboard() {
-  const [, params] = useRoute("/:tenant/dashboard");
-  const [, rootParams] = useRoute("/:tenant");
-  const tenant = params?.tenant ?? rootParams?.tenant ?? "picania";
+  const [location] = useLocation();
+  const tenant = location.split("/")[1] || "picania";
 
   const [tenantMargin, setTenantMargin] = useState(50);
   const [stats, setStats] = useState<DashboardStats>({
@@ -156,18 +154,20 @@ export default function Dashboard() {
 
             const recipeItemsSnap = await getDocs(recipeItemsRef);
 
-            const recipeItems: RecipeIngredientItem[] = recipeItemsSnap.docs.map((itemDoc) => {
-              const itemData = itemDoc.data() as any;
-              const ingredientId = String(itemData?.ingredientId ?? "");
-              const ingredient = ingredientsMap.get(ingredientId);
+            const recipeItems: RecipeIngredientItem[] = recipeItemsSnap.docs.map(
+              (itemDoc) => {
+                const itemData = itemDoc.data() as any;
+                const ingredientId = String(itemData?.ingredientId ?? "");
+                const ingredient = ingredientsMap.get(ingredientId);
 
-              return {
-                id: itemDoc.id,
-                ingredientId,
-                quantity: Number(itemData?.quantity ?? 0),
-                ingredient,
-              };
-            });
+                return {
+                  id: itemDoc.id,
+                  ingredientId,
+                  quantity: Number(itemData?.quantity ?? 0),
+                  ingredient,
+                };
+              }
+            );
 
             return {
               id: recipeDoc.id,
@@ -199,7 +199,8 @@ export default function Dashboard() {
           }, 0);
 
           const realMargin =
-            recipe.pricingPercentage !== undefined && recipe.pricingPercentage !== null
+            recipe.pricingPercentage !== undefined &&
+            recipe.pricingPercentage !== null
               ? Number(recipe.pricingPercentage)
               : tenantMargin;
 
@@ -257,11 +258,15 @@ export default function Dashboard() {
   };
 
   return (
-    <Shell>
+    <Shell key={tenant}>
       <div className="flex flex-col gap-8">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight font-display mb-2">Dashboard</h2>
-          <p className="text-muted-foreground">Resumen de los costos e inventario de su cocina.</p>
+          <h2 className="text-3xl font-bold tracking-tight font-display mb-2">
+            Dashboard
+          </h2>
+          <p className="text-muted-foreground">
+            Resumen de los costos e inventario de su cocina.
+          </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -298,7 +303,9 @@ export default function Dashboard() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <Card className="col-span-4 shadow-sm border-border/50">
             <CardHeader>
-              <CardTitle className="font-display text-xl">Descripción general del inventario</CardTitle>
+              <CardTitle className="font-display text-xl">
+                Descripción general del inventario
+              </CardTitle>
             </CardHeader>
             <CardContent className="pl-2">
               <div className="h-[300px] w-full">
@@ -340,7 +347,9 @@ export default function Dashboard() {
 
           <Card className="col-span-3 shadow-sm border-border/50">
             <CardHeader>
-              <CardTitle className="font-display text-xl">Recetas recientes</CardTitle>
+              <CardTitle className="font-display text-xl">
+                Recetas recientes
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -357,7 +366,9 @@ export default function Dashboard() {
                       </div>
                     ))
                 ) : stats.recentRecipes.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">Sin recetas.</p>
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Sin recetas.
+                  </p>
                 ) : (
                   stats.recentRecipes.map((recipe) => (
                     <div

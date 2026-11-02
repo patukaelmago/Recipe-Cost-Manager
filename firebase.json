@@ -9,15 +9,30 @@
     "headers": [
       {
         "source": "/sw.js",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
       },
       {
         "source": "/manifest.webmanifest",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
       },
       {
         "source": "/index.html",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
       }
     ],
     "rewrites": [
@@ -25,6 +40,25 @@
         "source": "**",
         "destination": "/index.html"
       }
-    ]
-  }
+    ],
+    "site": "recipe-cost-manager-d00ed"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "disallowLegacyRuntimeConfig": true,
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ]
 }

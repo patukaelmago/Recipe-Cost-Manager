@@ -4,13 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useLocation } from "wouter";
 import {
   GoogleAuthProvider,
   signInWithPopup,
+  setPersistence,
+  browserLocalPersistence,
 } from "firebase/auth";
+import { UtensilsCrossed, Chrome } from "lucide-react";
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
@@ -30,9 +33,11 @@ export default function LoginPage() {
 
     try {
       const provider = new GoogleAuthProvider();
+      await setPersistence(auth, browserLocalPersistence);
       const result = await signInWithPopup(auth, provider);
 
       const email = result.user.email?.toLowerCase().trim();
+      const uid = result.user.uid;
 
       if (!email) {
         alert("No se pudo obtener el email");
@@ -40,33 +45,42 @@ export default function LoginPage() {
         return;
       }
 
-      // Firestore permite leer el perfil propio por UID, no listar usuarios.
-      const snap = await getDoc(doc(db, "users", result.user.uid));
+      const userRef = doc(db, "users", uid);
+      const userSnap = await getDoc(userRef);
 
-      if (!snap.exists()) {
+      if (userSnap.exists()) {
+        const userData = userSnap.data() as any;
+
+        if (userData?.role === "superadmin" || (userData?.tenants?.length > 1)) {
+          setLocation("/select-tenant");
+          setLoading(false);
+          return;
+        }
+
+        if (userData?.tenantId) {
+          setLocation(`/${userData.tenantId}/dashboard`);
+          setLoading(false);
+          return;
+        }
+
+        if (userData?.tenants?.length === 1) {
+          setLocation(`/${userData.tenants[0]}`);
+          setLoading(false);
+          return;
+        }
+      }
+
+      const q = query(collection(db, "tenants"), where("allowedEmails", "array-contains", email));
+      const tenantSnap = await getDocs(q);
+
+      if (!tenantSnap.empty) {
+        const tenantId = tenantSnap.docs[0].id;
+        setLocation(`/${tenantId}`);
+      } else {
         alert("No autorizado");
-        setLoading(false);
-        return;
       }
 
-      const user = snap.data();
-
-      if (user.role === "superadmin") {
-        setLocation("/select-tenant");
-        setLoading(false);
-        return;
-      }
-
-      if (!user.tenantId) {
-        alert("Usuario sin tenant asignado");
-        setLoading(false);
-        return;
-      }
-
-      // 🔥 FIX ACÁ
-      setLocation(`/${user.tenantId}`);
       setLoading(false);
-
     } catch (e: any) {
       console.error("LOGIN ERROR:", e);
       alert(e.message || "Error en login");
@@ -75,17 +89,38 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
-      <main className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-sm sm:p-8">
-        <h1 className="text-2xl font-bold font-display">Recipe Cost Manager</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Gestioná ingredientes, recetas y costos de tu cocina.</p>
-        <Button className="mt-6 w-full" onClick={handleGoogleLogin} disabled={loading}>
-          {loading ? "Entrando..." : "Entrar con Google"}
-        </Button>
-        <section className="mt-6 border-t pt-6" aria-labelledby="demo-title">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0b0f14] px-6 py-10">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(34,197,94,0.20),_transparent_35%),radial-gradient(circle_at_bottom,_rgba(255,255,255,0.06),_transparent_30%)]" />
+
+      <div className="relative z-10 w-full max-w-md">
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl">
+          <div className="mb-8 flex flex-col items-center text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
+              <UtensilsCrossed className="h-8 w-8" />
+            </div>
+
+            <h1 className="text-3xl font-bold tracking-tight text-white">
+              Recipe Cost Manager
+            </h1>
+
+            <p className="mt-3 text-sm leading-6 text-white/70">
+              Iniciá sesión para administrar costos, recetas e ingredientes de tu negocio.
+            </p>
+          </div>
+
+          <button
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="flex w-full items-center justify-center gap-3 rounded-2xl bg-white px-4 py-3.5 font-medium text-slate-900 transition-all duration-200 hover:scale-[1.01] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            <Chrome className="h-5 w-5" />
+            {loading ? "Entrando..." : "Entrar con Google"}
+          </button>
+
+        <section className="mt-6 border-t border-white/15 pt-6 text-white" aria-labelledby="demo-title">
           <h2 id="demo-title" className="text-lg font-semibold">Probá la demo</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Incluye 12 ingredientes y 3 recetas. Podés crear, editar y calcular costos. Cada nuevo ingreso comienza con los ejemplos originales.</p>
-          <div className="my-4 rounded-lg bg-secondary p-3 text-sm">
+          <p className="mt-2 text-sm text-white/60">Incluye 12 ingredientes y 3 recetas. Podés crear, editar y calcular costos. Cada nuevo ingreso comienza con los ejemplos originales.</p>
+          <div className="my-4 rounded-lg bg-white/10 p-3 text-sm">
             <p>Usuario: <strong>{DEMO_USER}</strong></p>
             <p>Contraseña: <strong>{DEMO_PASSWORD}</strong></p>
           </div>
@@ -99,18 +134,23 @@ export default function LoginPage() {
           }}>
             <div className="space-y-2">
               <Label htmlFor="demo-user">Usuario de demo</Label>
-              <Input id="demo-user" autoComplete="username" value={demoUser} onChange={e => setDemoUser(e.target.value)} required />
+              <Input className="border-white/20 bg-white/10 text-white" id="demo-user" autoComplete="username" value={demoUser} onChange={e => setDemoUser(e.target.value)} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="demo-password">Contraseña de demo</Label>
-              <Input id="demo-password" type="password" autoComplete="current-password" value={demoPassword} onChange={e => setDemoPassword(e.target.value)} required />
+              <Input className="border-white/20 bg-white/10 text-white" id="demo-password" type="password" autoComplete="current-password" value={demoPassword} onChange={e => setDemoPassword(e.target.value)} required />
             </div>
             {demoError && <p role="alert" className="text-sm text-destructive">{demoError}</p>}
-            <Button type="submit" variant="outline" className="w-full">Entrar a la demo</Button>
+            <Button type="submit" className="w-full">Entrar a la demo</Button>
           </form>
-          <p className="mt-4 text-xs text-muted-foreground">Los datos de prueba y los cambios son propios de esta sesión. Precios ilustrativos.</p>
+          <p className="mt-4 text-xs text-white/60">Los datos de prueba y los cambios son propios de esta sesión. Precios ilustrativos.</p>
         </section>
-      </main>
+
+          <p className="mt-5 text-center text-xs text-white/45">
+            Acceso privado para cuentas autorizadas
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

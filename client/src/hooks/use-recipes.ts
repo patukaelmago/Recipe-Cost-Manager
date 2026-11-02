@@ -15,7 +15,6 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { db } from "@/lib/firebase";
 import { insertRecipeSchema, type InsertRecipe } from "@shared/schema";
-import { insertIngredientSchema, type InsertIngredient } from "@shared/schema";
 
 export type Ingredient = {
   id: string;
@@ -45,25 +44,20 @@ export type Recipe = {
 const TENANTS_COL = "tenants" as const;
 const RECIPES_COL = "recipes" as const;
 const INGREDIENTS_COL = "ingredients" as const;
-const DEFAULT_TENANT_ID = "picania";
+const DEFAULT_TENANT_ID = "";
 
 function parseRecipe(input: unknown): InsertRecipe {
   return insertRecipeSchema.parse(input);
 }
 
-function parseIngredient(input: unknown): InsertIngredient {
-  return insertIngredientSchema.parse(input);
-}
-
 function mapIngredient(id: string, data: any): Ingredient {
-  const parsed = parseIngredient({
-    name: data?.name,
-    unit: data?.unit,
-    packageSize: data?.packageSize,
-    price: data?.price,
-  });
-
-  return { id, ...parsed };
+  return {
+    id,
+    name: String(data?.name ?? "Ingrediente"),
+    unit: String(data?.unit ?? "u"),
+    packageSize: Number(data?.packageSize ?? 1),
+    price: Number(data?.price ?? 0),
+  };
 }
 
 function mapRecipeBase(id: string, data: any): Omit<Recipe, "ingredients"> {

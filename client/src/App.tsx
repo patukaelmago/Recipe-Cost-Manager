@@ -33,7 +33,7 @@ type AccessState = {
 function TenantGuard({ component: Component }: { component: React.ComponentType<any> }) {
   const [location] = useLocation();
   const tenant = location.split("/")[1] || "";
-  if (isDemo(tenant) || tenant === "sucre") return <Component />;
+  if (isDemo(tenant)) return <Component />;
   return <AuthenticatedTenantGuard component={Component} />;
 }
 
@@ -166,8 +166,6 @@ function Router() {
     <Switch>
       <Route path="/" component={LoginPage} />
       <Route path="/select-tenant" component={SelectTenantPage} />
-
-      <Route path="/sucre" component={Dashboard} />
 
       <Route path="/:tenant">
         {() => <TenantGuard component={Dashboard} />}

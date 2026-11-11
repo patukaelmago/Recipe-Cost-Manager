@@ -10,10 +10,12 @@ import { useLocation } from "wouter";
 import {
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithEmailAndPassword,
   setPersistence,
   browserLocalPersistence,
 } from "firebase/auth";
 import { UtensilsCrossed, Chrome } from "lucide-react";
+import { usernameToEmail } from "@/lib/usernameLogin";
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
@@ -21,11 +23,47 @@ export default function LoginPage() {
   const [demoUser, setDemoUser] = useState("");
   const [demoPassword, setDemoPassword] = useState("");
   const [demoError, setDemoError] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
 
   const enterDemo = () => {
     resetDemo();
     queryClient.removeQueries({ predicate: query => query.queryKey[1] === "demo" });
     setLocation("/demo/dashboard");
+  };
+
+  // Sends a signed-in user to the account they are allowed to manage.
+  const routeAfterLogin = async (uid: string, email: string) => {
+    const userSnap = await getDoc(doc(db, "users", uid));
+
+    if (userSnap.exists()) {
+      const userData = userSnap.data() as any;
+
+      if (userData?.role === "superadmin" || userData?.tenants?.length > 1) {
+        setLocation("/select-tenant");
+        return;
+      }
+
+      if (userData?.tenantId) {
+        setLocation(`/${userData.tenantId}/dashboard`);
+        return;
+      }
+
+      if (userData?.tenants?.length === 1) {
+        setLocation(`/${userData.tenants[0]}`);
+        return;
+      }
+    }
+
+    const q = query(collection(db, "tenants"), where("allowedEmails", "array-contains", email));
+    const tenantSnap = await getDocs(q);
+
+    if (!tenantSnap.empty) {
+      setLocation(`/${tenantSnap.docs[0].id}`);
+    } else {
+      alert("No autorizado");
+    }
   };
 
   const handleGoogleLogin = async () => {
@@ -45,45 +83,30 @@ export default function LoginPage() {
         return;
       }
 
-      const userRef = doc(db, "users", uid);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const userData = userSnap.data() as any;
-
-        if (userData?.role === "superadmin" || (userData?.tenants?.length > 1)) {
-          setLocation("/select-tenant");
-          setLoading(false);
-          return;
-        }
-
-        if (userData?.tenantId) {
-          setLocation(`/${userData.tenantId}/dashboard`);
-          setLoading(false);
-          return;
-        }
-
-        if (userData?.tenants?.length === 1) {
-          setLocation(`/${userData.tenants[0]}`);
-          setLoading(false);
-          return;
-        }
-      }
-
-      const q = query(collection(db, "tenants"), where("allowedEmails", "array-contains", email));
-      const tenantSnap = await getDocs(q);
-
-      if (!tenantSnap.empty) {
-        const tenantId = tenantSnap.docs[0].id;
-        setLocation(`/${tenantId}`);
-      } else {
-        alert("No autorizado");
-      }
-
+      await routeAfterLogin(uid, email);
       setLoading(false);
     } catch (e: any) {
       console.error("LOGIN ERROR:", e);
       alert(e.message || "Error en login");
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setLoginError("");
+    setLoading(true);
+
+    try {
+      const email = usernameToEmail(username);
+      await setPersistence(auth, browserLocalPersistence);
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      await routeAfterLogin(result.user.uid, email);
+    } catch (e: any) {
+      console.error("LOGIN ERROR:", e);
+      const badCredentials = ["auth/invalid-credential", "auth/wrong-password", "auth/user-not-found", "auth/invalid-email"];
+      setLoginError(badCredentials.includes(e?.code) ? "Usuario o contraseña incorrectos." : e?.message || "Error en login");
+    } finally {
       setLoading(false);
     }
   };
@@ -116,6 +139,20 @@ export default function LoginPage() {
             <Chrome className="h-5 w-5" />
             {loading ? "Entrando..." : "Entrar con Google"}
           </button>
+
+          <form className="mt-6 space-y-4 border-t border-white/15 pt-6 text-white" onSubmit={handlePasswordLogin}>
+            <h2 className="text-lg font-semibold">Entrar con usuario</h2>
+            <div className="space-y-2">
+              <Label htmlFor="login-user">Usuario</Label>
+              <Input className="border-white/20 bg-white/10 text-white" id="login-user" autoComplete="username" autoCapitalize="none" value={username} onChange={e => setUsername(e.target.value)} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="login-password">Contraseña</Label>
+              <Input className="border-white/20 bg-white/10 text-white" id="login-password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required />
+            </div>
+            {loginError && <p role="alert" className="text-sm text-destructive">{loginError}</p>}
+            <Button type="submit" className="w-full" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</Button>
+          </form>
 
         <section className="mt-6 border-t border-white/15 pt-6 text-white" aria-labelledby="demo-title">
           <h2 id="demo-title" className="text-lg font-semibold">Probá la demo</h2>

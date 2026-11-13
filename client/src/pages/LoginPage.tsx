@@ -152,7 +152,7 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-5 rounded-lg bg-white/10 p-3 text-center text-sm text-white/80">
-            Demo — usuario: <strong className="text-white">{DEMO_USER}</strong> · contraseña: <strong className="text-white">{DEMO_PASSWORD}</strong>
+            Usuario: <strong className="text-white">{DEMO_USER}</strong> · contraseña: <strong className="text-white">{DEMO_PASSWORD}</strong>
           </div>
 
           <p className="mt-5 text-center text-xs text-white/45">

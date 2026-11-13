@@ -60,8 +60,8 @@ export function Shell({ children }: ShellProps) {
             </SheetContent>
           </Sheet>
 
-          <Link href={`/${tenant}/dashboard`}>
-            <div className="ml-4 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1 transition-colors hover:bg-secondary/70">
+          <Link href="/">
+            <div title="Ir al inicio de sesión" className="ml-4 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1 transition-colors hover:bg-secondary/70">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
                 <UtensilsCrossed className="h-5 w-5" />
               </div>

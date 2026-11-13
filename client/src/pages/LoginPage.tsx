@@ -15,7 +15,7 @@ import {
   setPersistence,
   browserLocalPersistence,
 } from "firebase/auth";
-import { UtensilsCrossed, Chrome } from "lucide-react";
+import { UtensilsCrossed, Chrome, Eye, EyeOff } from "lucide-react";
 
 const USERNAME_DOMAIN = "recipe-cost-manager.app";
 
@@ -25,6 +25,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState(DEMO_USER);
   const [password, setPassword] = useState(DEMO_PASSWORD);
   const [loginError, setLoginError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // Los usuarios con nombre (ej. "romina") son cuentas internas de Firebase con este dominio
   const toLoginEmail = (value: string) => {
@@ -134,7 +135,17 @@ export default function LoginPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="login-password">Contraseña</Label>
-              <Input className="border-white/20 bg-white/10 text-white" id="login-password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required />
+              <div className="relative">
+                <Input className="border-white/20 bg-white/10 pr-11 text-white" id="login-password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-white/60 transition-colors hover:text-white"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
             </div>
             {loginError && <p role="alert" className="text-sm text-red-400">{loginError}</p>}
             <Button type="submit" className="w-full" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</Button>

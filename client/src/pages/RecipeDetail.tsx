@@ -381,16 +381,69 @@ export default function RecipeDetail() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            <Card className="md:col-span-2 shadow-sm border-border/50 overflow-hidden">
+          <div className="space-y-6">
+            <Card className="shadow-sm border-border/50 overflow-hidden">
               <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2">
                 <CardTitle className="font-display text-xl">Ingredients</CardTitle>
                 <AddIngredientDialog recipeId={recipeId} tenant={tenant} />
               </CardHeader>
 
-              <CardContent className="px-0 sm:px-6">
-                <div className="overflow-x-auto">
-                  <Table className="min-w-[640px]">
+              <CardContent className="px-4 sm:px-6">
+                {/* Celular: un ingrediente por tarjeta, datos uno debajo del otro */}
+                <div className="space-y-3 md:hidden">
+                  {(recipe.ingredients ?? []).length === 0 ? (
+                    <p className="py-8 text-center text-muted-foreground">
+                      Aún no se han añadido ingredientes.
+                    </p>
+                  ) : (
+                    recipe.ingredients.map((item: any) => {
+                      const pricePerUnit =
+                        (item.ingredient.price ?? 0) / (item.ingredient.packageSize || 1);
+                      const totalCost = pricePerUnit * (item.quantity ?? 0);
+
+                      return (
+                        <div key={item.id} className="rounded-xl border border-border/60 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="min-w-0 break-words font-medium">{item.ingredient.name}</p>
+                            <div className="flex shrink-0 gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                type="button"
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                onClick={() => {
+                                  setEditingItem(item);
+                                  setEditQuantity(String(item.quantity));
+                                  setEditOpen(true);
+                                }}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <RemoveIngredientButton recipeId={recipeId} itemId={item.id} tenant={tenant} />
+                            </div>
+                          </div>
+                          <dl className="mt-2 space-y-1 text-sm">
+                            <div className="flex justify-between gap-3">
+                              <dt className="text-muted-foreground">Cantidad</dt>
+                              <dd>{item.quantity} {item.ingredient.unit}</dd>
+                            </div>
+                            <div className="flex justify-between gap-3">
+                              <dt className="text-muted-foreground">Costo unitario</dt>
+                              <dd>${formatCurrency(pricePerUnit)} / {item.ingredient.unit}</dd>
+                            </div>
+                            <div className="flex justify-between gap-3 border-t border-border/60 pt-1">
+                              <dt className="font-medium">Total</dt>
+                              <dd className="font-mono font-medium">${formatCurrency(totalCost)}</dd>
+                            </div>
+                          </dl>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="hidden md:block">
+                  <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead className="min-w-[180px]">Ingrediente</TableHead>
@@ -461,7 +514,7 @@ export default function RecipeDetail() {
               </CardContent>
             </Card>
 
-            <div className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
               <Card className="bg-primary/5 border-primary/20 shadow-lg shadow-primary/5">
                 <CardHeader>
                   <CardTitle className="font-display text-xl text-primary">
@@ -848,11 +901,9 @@ function RecipeDetailSkeleton() {
           <Skeleton className="h-8 w-1/3" />
           <Skeleton className="h-4 w-1/2" />
         </div>
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="md:col-span-2">
-            <Skeleton className="h-[400px] w-full rounded-xl" />
-          </div>
-          <div className="space-y-6">
+        <div className="space-y-6">
+          <Skeleton className="h-[400px] w-full rounded-xl" />
+          <div className="grid gap-6 md:grid-cols-2">
             <Skeleton className="h-[200px] w-full rounded-xl" />
             <Skeleton className="h-[100px] w-full rounded-xl" />
           </div>

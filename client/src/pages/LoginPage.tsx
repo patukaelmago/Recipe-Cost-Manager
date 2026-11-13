@@ -22,11 +22,8 @@ const USERNAME_DOMAIN = "recipe-cost-manager.app";
 export default function LoginPage() {
   const [, setLocation] = useLocation();
   const [loading, setLoading] = useState(false);
-  const [demoUser, setDemoUser] = useState("");
-  const [demoPassword, setDemoPassword] = useState("");
-  const [demoError, setDemoError] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState(DEMO_USER);
+  const [password, setPassword] = useState(DEMO_PASSWORD);
   const [loginError, setLoginError] = useState("");
 
   // Los usuarios con nombre (ej. "romina") son cuentas internas de Firebase con este dominio
@@ -48,6 +45,10 @@ export default function LoginPage() {
   const handleUserLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoginError("");
+    if (username.trim().toLowerCase() === DEMO_USER && password === DEMO_PASSWORD) {
+      enterDemo();
+      return;
+    }
     setLoading(true);
     try {
       await setPersistence(auth, browserLocalPersistence);
@@ -139,34 +140,9 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</Button>
           </form>
 
-        <section className="mt-6 border-t border-white/15 pt-6 text-white" aria-labelledby="demo-title">
-          <h2 id="demo-title" className="text-lg font-semibold">Probá la demo</h2>
-          <p className="mt-2 text-sm text-white/60">Incluye 12 ingredientes y 3 recetas. Podés crear, editar y calcular costos. Cada nuevo ingreso comienza con los ejemplos originales.</p>
-          <div className="my-4 rounded-lg bg-white/10 p-3 text-sm">
-            <p>Usuario: <strong>{DEMO_USER}</strong></p>
-            <p>Contraseña: <strong>{DEMO_PASSWORD}</strong></p>
+          <div className="mt-5 rounded-lg bg-white/10 p-3 text-center text-sm text-white/80">
+            Demo — usuario: <strong className="text-white">{DEMO_USER}</strong> · contraseña: <strong className="text-white">{DEMO_PASSWORD}</strong>
           </div>
-          <form className="space-y-4" onSubmit={event => {
-            event.preventDefault();
-            if (demoUser.trim().toLowerCase() !== DEMO_USER || demoPassword !== DEMO_PASSWORD) {
-              setDemoError("Usá el usuario y la contraseña de prueba que aparecen arriba.");
-              return;
-            }
-            enterDemo();
-          }}>
-            <div className="space-y-2">
-              <Label htmlFor="demo-user">Usuario de demo</Label>
-              <Input className="border-white/20 bg-white/10 text-white" id="demo-user" autoComplete="username" value={demoUser} onChange={e => setDemoUser(e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="demo-password">Contraseña de demo</Label>
-              <Input className="border-white/20 bg-white/10 text-white" id="demo-password" type="password" autoComplete="current-password" value={demoPassword} onChange={e => setDemoPassword(e.target.value)} required />
-            </div>
-            {demoError && <p role="alert" className="text-sm text-destructive">{demoError}</p>}
-            <Button type="submit" className="w-full">Entrar a la demo</Button>
-          </form>
-          <p className="mt-4 text-xs text-white/60">Los datos de prueba y los cambios son propios de esta sesión. Precios ilustrativos.</p>
-        </section>
 
           <p className="mt-5 text-center text-xs text-white/45">
             Acceso privado para cuentas autorizadas

@@ -10,11 +10,14 @@ import { useLocation } from "wouter";
 import {
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithEmailAndPassword,
   signOut,
   setPersistence,
   browserLocalPersistence,
 } from "firebase/auth";
 import { UtensilsCrossed, Chrome } from "lucide-react";
+
+const USERNAME_DOMAIN = "recipe-cost-manager.app";
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
@@ -22,6 +25,40 @@ export default function LoginPage() {
   const [demoUser, setDemoUser] = useState("");
   const [demoPassword, setDemoPassword] = useState("");
   const [demoError, setDemoError] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+
+  // Los usuarios con nombre (ej. "romina") son cuentas internas de Firebase con este dominio
+  const toLoginEmail = (value: string) => {
+    const v = value.trim().toLowerCase();
+    return v.includes("@") ? v : `${v}@${USERNAME_DOMAIN}`;
+  };
+
+  const goToHome = async (user: import("firebase/auth").User) => {
+    const target = homePath(await getAccess(user));
+    if (target) {
+      setLocation(target);
+      return true;
+    }
+    await signOut(auth);
+    return false;
+  };
+
+  const handleUserLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setLoginError("");
+    setLoading(true);
+    try {
+      await setPersistence(auth, browserLocalPersistence);
+      const result = await signInWithEmailAndPassword(auth, toLoginEmail(username), password);
+      if (!(await goToHome(result.user))) setLoginError("Este usuario no tiene negocios asignados.");
+    } catch (e: any) {
+      console.error("LOGIN ERROR:", e);
+      setLoginError("Usuario o contraseña incorrectos.");
+    }
+    setLoading(false);
+  };
 
   const enterDemo = () => {
     resetDemo();
@@ -44,13 +81,8 @@ export default function LoginPage() {
         return;
       }
 
-      const target = homePath(await getAccess(result.user));
-
-      if (target) {
-        setLocation(target);
-      } else {
+      if (!(await goToHome(result.user))) {
         alert(`No autorizado: ${result.user.email}`);
-        await signOut(auth);
       }
 
       setLoading(false);
@@ -89,6 +121,23 @@ export default function LoginPage() {
             <Chrome className="h-5 w-5" />
             {loading ? "Entrando..." : "Entrar con Google"}
           </button>
+
+          <div className="my-5 flex items-center gap-3 text-xs text-white/40">
+            <span className="h-px flex-1 bg-white/15" />o con tu usuario<span className="h-px flex-1 bg-white/15" />
+          </div>
+
+          <form className="space-y-3 text-white" onSubmit={handleUserLogin}>
+            <div className="space-y-2">
+              <Label htmlFor="login-user">Usuario</Label>
+              <Input className="border-white/20 bg-white/10 text-white" id="login-user" autoComplete="username" autoCapitalize="none" value={username} onChange={e => setUsername(e.target.value)} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="login-password">Contraseña</Label>
+              <Input className="border-white/20 bg-white/10 text-white" id="login-password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required />
+            </div>
+            {loginError && <p role="alert" className="text-sm text-red-400">{loginError}</p>}
+            <Button type="submit" className="w-full" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</Button>
+          </form>
 
         <section className="mt-6 border-t border-white/15 pt-6 text-white" aria-labelledby="demo-title">
           <h2 id="demo-title" className="text-lg font-semibold">Probá la demo</h2>

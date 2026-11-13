@@ -30,10 +30,6 @@ service cloud.firestore {
       return isSignedIn() && profile().get('role', '') == 'superadmin';
     }
 
-    function isPublicSucre(tenantId) {
-      return tenantId == "sucre";
-    }
-
     function isAllowed(tenantId) {
       let p = profile();
       let tenantPath = /databases/$(database)/documents/tenants/$(tenantId);
@@ -50,21 +46,21 @@ service cloud.firestore {
       allow list: if isSuperAdmin()
         || (myEmail() != '' && myEmail() in resource.data.get('allowedEmails', []));
 
-      allow get: if isPublicSucre(tenantId) || isSuperAdmin() || isAllowed(tenantId);
+      allow get: if isSuperAdmin() || isAllowed(tenantId);
 
       // tenant doc (nombre, config, etc.)
-      allow write: if isPublicSucre(tenantId) || isSuperAdmin() || isAllowed(tenantId);
+      allow write: if isSuperAdmin() || isAllowed(tenantId);
 
       match /recipes/{recipeId} {
-        allow read, write: if isPublicSucre(tenantId) || isSuperAdmin() || isAllowed(tenantId);
+        allow read, write: if isSuperAdmin() || isAllowed(tenantId);
 
         match /ingredients/{itemId} {
-          allow read, write: if isPublicSucre(tenantId) || isSuperAdmin() || isAllowed(tenantId);
+          allow read, write: if isSuperAdmin() || isAllowed(tenantId);
         }
       }
 
       match /ingredients/{ingredientId} {
-        allow read, write: if isPublicSucre(tenantId) || isSuperAdmin() || isAllowed(tenantId);
+        allow read, write: if isSuperAdmin() || isAllowed(tenantId);
       }
     }
 

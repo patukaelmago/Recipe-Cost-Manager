@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function myEmail() {
+      return isSignedIn() ? request.auth.token.get('email', '').lower() : '';
+    }
+
+    function uidPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function emailPath() {
+      return /databases/$(database)/documents/users/$(myEmail());
+    }
+
+    // Perfil del usuario: users/{uid} (forma vieja) o users/{email} (forma nueva)
+    function profile() {
+      return !isSignedIn() ? {}
+        : exists(uidPath()) ? get(uidPath()).data
+        : (myEmail() != '' && exists(emailPath())) ? get(emailPath()).data
+        : {};
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && profile().get('role', '') == 'superadmin';
+    }
+
+    function isPublicSucre(tenantId) {
+      return tenantId == "sucre";
+    }
+
+    function isAllowed(tenantId) {
+      let p = profile();
+      let tenantPath = /databases/$(database)/documents/tenants/$(tenantId);
+      return isSignedIn() && (
+        tenantId in p.get('tenants', [])
+        || p.get('tenantId', '') == tenantId
+        || (myEmail() != '' && exists(tenantPath)
+            && myEmail() in get(tenantPath).data.get('allowedEmails', []))
+      );
+    }
+
+    match /tenants/{tenantId} {
+      // Listar: superadmin, o búsqueda por allowedEmails del propio email
+      allow list: if isSuperAdmin()
+        || (myEmail() != '' && myEmail() in resource.data.get('allowedEmails', []));
+
+      allow get: if isPublicSucre(tenantId) || isSuperAdmin() || isAllowed(tenantId);
+
+      // tenant doc (nombre, config, etc.)
+      allow write: if isPublicSucre(tenantId) || isSuperAdmin() || isAllowed(tenantId);
+
+      match /recipes/{recipeId} {
+        allow read, write: if isPublicSucre(tenantId) || isSuperAdmin() || isAllowed(tenantId);
+
+        match /ingredients/{itemId} {
+          allow read, write: if isPublicSucre(tenantId) || isSuperAdmin() || isAllowed(tenantId);
+        }
+      }
+
+      match /ingredients/{ingredientId} {
+        allow read, write: if isPublicSucre(tenantId) || isSuperAdmin() || isAllowed(tenantId);
+      }
+    }
+
+    // Solo el superadmin crea o edita usuarios. Cada uno puede leer el suyo.
+    match /users/{userId} {
+      allow read: if isSignedIn()
+        && (request.auth.uid == userId || myEmail() == userId || isSuperAdmin());
+      allow write: if isSuperAdmin();
+    }
+  }
+}

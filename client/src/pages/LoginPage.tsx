@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
+import { getAccess, homePath } from "@/lib/access";
 import { useLocation } from "wouter";
 import {
   GoogleAuthProvider,
   signInWithPopup,
+  signOut,
   setPersistence,
   browserLocalPersistence,
 } from "firebase/auth";
@@ -36,48 +37,20 @@ export default function LoginPage() {
       await setPersistence(auth, browserLocalPersistence);
       const result = await signInWithPopup(auth, provider);
 
-      const email = result.user.email?.toLowerCase().trim();
-      const uid = result.user.uid;
-
-      if (!email) {
+      if (!result.user.email) {
         alert("No se pudo obtener el email");
+        await signOut(auth);
         setLoading(false);
         return;
       }
 
-      const userRef = doc(db, "users", uid);
-      const userSnap = await getDoc(userRef);
+      const target = homePath(await getAccess(result.user));
 
-      if (userSnap.exists()) {
-        const userData = userSnap.data() as any;
-
-        if (userData?.role === "superadmin" || (userData?.tenants?.length > 1)) {
-          setLocation("/select-tenant");
-          setLoading(false);
-          return;
-        }
-
-        if (userData?.tenantId) {
-          setLocation(`/${userData.tenantId}/dashboard`);
-          setLoading(false);
-          return;
-        }
-
-        if (userData?.tenants?.length === 1) {
-          setLocation(`/${userData.tenants[0]}`);
-          setLoading(false);
-          return;
-        }
-      }
-
-      const q = query(collection(db, "tenants"), where("allowedEmails", "array-contains", email));
-      const tenantSnap = await getDocs(q);
-
-      if (!tenantSnap.empty) {
-        const tenantId = tenantSnap.docs[0].id;
-        setLocation(`/${tenantId}`);
+      if (target) {
+        setLocation(target);
       } else {
-        alert("No autorizado");
+        alert(`No autorizado: ${result.user.email}`);
+        await signOut(auth);
       }
 
       setLoading(false);

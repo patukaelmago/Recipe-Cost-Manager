@@ -4,14 +4,14 @@ import { isDemo } from "@/lib/demo";
 import { useEffect, useState } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { getAccess, canEnter, homePath } from "@/lib/access";
 
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-import { auth, db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 
 import LoginPage from "@/pages/LoginPage";
 import SelectTenantPage from "./pages/select-tenant";
@@ -65,73 +65,21 @@ function AuthenticatedTenantGuard({
       }
 
       try {
-        const email = user.email?.toLowerCase().trim() || "";
         const currentTenant = location.split("/")[1] || "";
+        const result = await getAccess(user);
 
-        const userRef = doc(db, "users", user.uid);
-        const userSnap = await getDoc(userRef);
-
-        if (userSnap.exists()) {
-          const userData = userSnap.data() as any;
-
-          if (userData?.role === "superadmin") {
-            setAccess({
-              loading: false,
-              user,
-              isSuperAdmin: true,
-              tenantId: null,
-            });
-            return;
-          }
-
-          if (userData?.tenantId === currentTenant) {
-            setAccess({ loading: false, user, isSuperAdmin: false, tenantId: currentTenant });
-            return;
-          }
-
-          if (Array.isArray(userData?.tenants)) {
-            if (userData.tenants.length > 1 && !currentTenant) {
-              setLocation("/select-tenant");
-              return;
-            }
-
-            if (currentTenant && userData.tenants.includes(currentTenant)) {
-              setAccess({
-                loading: false,
-                user,
-                isSuperAdmin: false,
-                tenantId: currentTenant,
-              });
-              return;
-            }
-
-            if (userData.tenants.length === 1) {
-              setLocation(`/${userData.tenants[0]}`);
-              return;
-            }
-          }
+        if (canEnter(result, currentTenant)) {
+          setAccess({
+            loading: false,
+            user,
+            isSuperAdmin: result.isSuperAdmin,
+            tenantId: currentTenant,
+          });
+          return;
         }
 
-        if (email && currentTenant) {
-          const tenantRef = doc(db, "tenants", currentTenant);
-          const tenantSnap = await getDoc(tenantRef);
-
-          if (
-            tenantSnap.exists() &&
-            Array.isArray(tenantSnap.data().allowedEmails) &&
-            tenantSnap.data().allowedEmails.includes(email)
-          ) {
-            setAccess({
-              loading: false,
-              user,
-              isSuperAdmin: false,
-              tenantId: currentTenant,
-            });
-            return;
-          }
-        }
-
-        setLocation("/");
+        // No puede entrar a este negocio: lo mando a los suyos (o al login)
+        setLocation(homePath(result) ?? "/");
       } catch (error) {
         console.error("GUARD ERROR:", error);
         setLocation("/");

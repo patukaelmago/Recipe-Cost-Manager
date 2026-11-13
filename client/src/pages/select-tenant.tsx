@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, doc, getDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
+import { getAccess } from "@/lib/access";
 import { useLocation } from "wouter";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -22,53 +23,35 @@ export default function SelectTenantPage() {
       }
 
       try {
-        const userRef = doc(db, "users", user.uid);
-        const userSnap = await getDoc(userRef);
+        const access = await getAccess(user);
 
-        if (!userSnap.exists()) {
-          alert("Usuario no configurado");
+        if (access.tenants.length === 0) {
+          alert(`No autorizado: ${user.email}`);
+          setLocation("/");
           return;
         }
 
-        const userData = userSnap.data() as any;
-
-        // 🔥 SUPERADMIN
-        if (userData.role === "superadmin") {
-          const snap = await getDocs(collection(db, "tenants"));
-
-          const list = snap.docs.map((doc) => ({
-            id: doc.id,
-            name: doc.data().displayName || doc.id,
-          }));
-
-          setTenants(list);
-          setLoading(false);
+        if (!access.isSuperAdmin && access.tenants.length === 1) {
+          setLocation(`/${access.tenants[0]}/dashboard`);
           return;
         }
 
-        // 🔥 CLIENTE
-        if (Array.isArray(userData.tenants)) {
-          const list = await Promise.all(
-            userData.tenants.map(async (tenantId: string) => {
-              const tenantRef = doc(db, "tenants", tenantId);
-              const tenantSnap = await getDoc(tenantRef);
-
+        const list = await Promise.all(
+          access.tenants.map(async (tenantId) => {
+            try {
+              const tenantSnap = await getDoc(doc(db, "tenants", tenantId));
               return {
                 id: tenantId,
-                name:
-                  tenantSnap.exists()
-                    ? tenantSnap.data().displayName || tenantId
-                    : tenantId,
+                name: (tenantSnap.exists() && tenantSnap.data().displayName) || tenantId,
               };
-            })
-          );
+            } catch {
+              return { id: tenantId, name: tenantId };
+            }
+          })
+        );
 
-          setTenants(list);
-          setLoading(false);
-          return;
-        }
-
-        alert("Usuario mal configurado");
+        list.sort((a, b) => a.name.localeCompare(b.name));
+        setTenants(list);
         setLoading(false);
       } catch (e) {
         console.error(e);
@@ -125,7 +108,7 @@ export default function SelectTenantPage() {
         {tenants.map((t) => (
           <button
             key={t.id}
-            onClick={() => setLocation(`/${t.id}`)}
+            onClick={() => setLocation(`/${t.id}/dashboard`)}
             style={{
               padding: 12,
               borderRadius: 8,
